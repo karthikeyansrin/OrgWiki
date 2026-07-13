@@ -1,0 +1,6 @@
+.dotnet/
+.npm-cache/
+**/bin/
+**/obj/
+.env
+frontend/.env.local
