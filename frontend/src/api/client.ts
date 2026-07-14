@@ -28,6 +28,8 @@ export type IngestionResult = {
   analysisEligibilityReason: string | null
   documents: IngestionDocument[]
 }
+export type DiscoveryResult = { domains: { key: string; name: string; description: string; confidence: number }[]; topics: { key: string; name: string; description: string; domainKey: string; confidence: number; sourceDocumentIds: string[] }[]; relationships: { sourceTopicKey: string; targetTopicKey: string; type: string; explanation: string; confidence: number }[]; duplicateGroups: { title: string; explanation: string; confidence: number; topicKeys: string[]; sourceDocumentIds: string[] }[]; conflicts: { title: string; description: string; topicKeys: string[]; claimA: string; claimB: string; evidenceSnippetA: string; evidenceSnippetB: string; recommendation: string; recommendationReasoning: string; confidence: number }[]; outdatedCandidates: { description: string; reason: string; topicKeys: string[]; confidence: number }[]; suggestedArticles: { key: string; title: string; summary: string; domainKey: string; topicKeys: string[]; sourceDocumentIds: string[]; reason: string; confidence: number }[] }
+export type AnalysisResult = { analysisId: string; uploadId: string; status: string; aiMode: string; model: string; documentsAnalyzed: number; corpusCharacterCount: number; inputTokens: number | null; outputTokens: number | null; totalTokens: number | null; durationMilliseconds: number | null; errorMessage: string | null; discovery: DiscoveryResult | null }
 
 export async function getHealth(): Promise<HealthStatus> {
   const response = await fetch(`${apiBaseUrl}/health`)
@@ -60,4 +62,16 @@ export async function getUpload(uploadId: string): Promise<IngestionResult> {
   const response = await fetch(`${apiBaseUrl}/api/uploads/${uploadId}`)
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<IngestionResult>
+}
+
+export async function startAnalysis(uploadId: string, retry = false): Promise<AnalysisResult> {
+  const response = await fetch(`${apiBaseUrl}/api/uploads/${uploadId}/analysis?retry=${retry}`, { method: 'POST' })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<AnalysisResult>
+}
+
+export async function getAnalysis(analysisId: string): Promise<AnalysisResult> {
+  const response = await fetch(`${apiBaseUrl}/api/analyses/${analysisId}`)
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<AnalysisResult>
 }

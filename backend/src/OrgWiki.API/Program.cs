@@ -1,6 +1,7 @@
 using OrgWiki.API.Options;
 using OrgWiki.Application;
 using OrgWiki.Infrastructure;
+using OrgWiki.Application.Analysis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,12 @@ builder.Services.Configure<OpenAiOptions>(options =>
     builder.Configuration.GetSection(OpenAiOptions.SectionName).Bind(options);
     options.ApiKey = builder.Configuration["OPENAI_API_KEY"] ?? options.ApiKey;
 });
+builder.Services.Configure<KnowledgeAnalysisOptions>(options =>
+{
+    builder.Configuration.GetSection(OpenAiOptions.SectionName).Bind(options);
+    options.ApiKey = builder.Configuration["OPENAI_API_KEY"] ?? options.ApiKey;
+});
+builder.Services.AddOptions<KnowledgeAnalysisOptions>().Validate(options => options.TimeoutSeconds > 0, "OpenAI timeout must be positive.").ValidateOnStart();
 
 builder.Services.Configure<StorageOptions>(options =>
 {

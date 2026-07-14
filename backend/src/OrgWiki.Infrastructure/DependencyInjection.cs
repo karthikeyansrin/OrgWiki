@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using OrgWiki.Application.Ingestion;
 using OrgWiki.Infrastructure.Ingestion;
 using OrgWiki.Infrastructure.Storage;
+using OrgWiki.Application.Analysis;
+using OrgWiki.Infrastructure.Analysis;
 
 namespace OrgWiki.Infrastructure;
 
@@ -33,6 +35,18 @@ public static class DependencyInjection
             if (int.TryParse(section[nameof(IngestionOptions.MaxPdfPages)], out var maxPdfPages)) options.MaxPdfPages = maxPdfPages;
             options.LocalStoragePath = section[nameof(IngestionOptions.LocalStoragePath)] ?? options.LocalStoragePath;
         });
+        services.AddHttpClient("OpenAI", (serviceProvider, client) =>
+        {
+            client.BaseAddress = new Uri("https://api.openai.com/");
+            var timeout = serviceProvider.GetRequiredService<IOptions<KnowledgeAnalysisOptions>>().Value.TimeoutSeconds;
+            if (timeout <= 0) throw new OptionsValidationException(nameof(KnowledgeAnalysisOptions), typeof(KnowledgeAnalysisOptions), ["OpenAI timeout must be positive."]);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+        });
+        services.AddScoped<IKnowledgeDiscoveryProvider, ReplayKnowledgeDiscoveryProvider>();
+        services.AddScoped<IKnowledgeDiscoveryProvider, OpenAiKnowledgeDiscoveryProvider>();
+        services.AddScoped<IKnowledgeDiscoveryValidator, KnowledgeDiscoveryValidator>();
+        services.AddScoped<DeterministicCorpusBuilder>();
+        services.AddScoped<IKnowledgeAnalysisService, KnowledgeAnalysisService>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IZipArchiveExtractor, SafeZipArchiveExtractor>();
         services.AddScoped<IContentNormalizer, ContentNormalizer>();

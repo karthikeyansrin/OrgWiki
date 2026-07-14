@@ -43,9 +43,14 @@ partial class OrgWikiDbContextModelSnapshot : ModelSnapshot
             b.Property<int>("SupportedFiles").HasColumnType("integer"); b.Property<int>("TotalCharacterCount").HasColumnType("integer"); b.Property<int>("TotalFiles").HasColumnType("integer");
             b.HasKey("Id"); b.HasIndex("CreatedAtUtc"); b.HasIndex("Status"); b.ToTable("uploads");
         });
+        modelBuilder.Entity("OrgWiki.Domain.Analysis.KnowledgeAnalysis", b =>
+        {
+            b.Property<Guid>("Id").HasColumnType("uuid"); b.Property<string>("AiMode").IsRequired().HasMaxLength(16).HasColumnType("character varying(16)"); b.Property<DateTime>("CreatedAtUtc").HasColumnType("timestamp with time zone"); b.Property<DateTime?>("CompletedAtUtc").HasColumnType("timestamp with time zone"); b.Property<long?>("DurationMilliseconds").HasColumnType("bigint"); b.Property<string>("ErrorMessage").HasColumnType("text"); b.Property<int?>("InputTokens").HasColumnType("integer"); b.Property<bool>("IsCurrent").HasColumnType("boolean"); b.Property<int?>("OutputTokens").HasColumnType("integer"); b.Property<string>("Model").IsRequired().HasMaxLength(128).HasColumnType("character varying(128)"); b.Property<string>("ResultJson").HasColumnType("text"); b.Property<DateTime>("StartedAtUtc").HasColumnType("timestamp with time zone"); b.Property<string>("Status").IsRequired().HasMaxLength(32).HasColumnType("character varying(32)"); b.Property<int?>("TotalTokens").HasColumnType("integer"); b.Property<Guid>("UploadId").HasColumnType("uuid"); b.HasKey("Id"); b.HasIndex("UploadId").IsUnique().HasFilter("\"IsCurrent\" = TRUE"); b.HasIndex("UploadId", "Status"); b.ToTable("knowledge_analyses");
+        });
         modelBuilder.Entity("OrgWiki.Domain.Ingestion.Document", b =>
             b.HasOne("OrgWiki.Domain.Ingestion.Upload", "Upload").WithMany("Documents").HasForeignKey("UploadId").OnDelete(DeleteBehavior.Cascade).IsRequired());
         modelBuilder.Entity("OrgWiki.Domain.Ingestion.Document", b => b.Navigation("Upload"));
         modelBuilder.Entity("OrgWiki.Domain.Ingestion.Upload", b => b.Navigation("Documents"));
+        modelBuilder.Entity("OrgWiki.Domain.Analysis.KnowledgeAnalysis", b => b.HasOne("OrgWiki.Domain.Ingestion.Upload", null).WithMany().HasForeignKey("UploadId").OnDelete(DeleteBehavior.Cascade).IsRequired());
     }
 }

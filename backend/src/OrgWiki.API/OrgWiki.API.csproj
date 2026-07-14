@@ -16,5 +16,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <None Update="replay-knowledge-discovery.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>
