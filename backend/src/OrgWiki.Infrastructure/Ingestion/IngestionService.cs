@@ -1,0 +1,92 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OrgWiki.Application.Ingestion;
+using OrgWiki.Domain.Ingestion;
+using OrgWiki.Infrastructure.Persistence;
+
+namespace OrgWiki.Infrastructure.Ingestion;
+
+public sealed class IngestionService(
+    OrgWikiDbContext db,
+    IFileStorageService storage,
+    IZipArchiveExtractor extractor,
+    IEnumerable<IDocumentParser> parsers,
+    IContentNormalizer normalizer,
+    IOptions<IngestionOptions> options,
+    ILogger<IngestionService> logger) : IIngestionService
+{
+    public async Task<IngestionResult> IngestAsync(string fileName, Stream archive, CancellationToken cancellationToken)
+    {
+        var upload = new Upload(fileName, string.Empty);
+        db.Uploads.Add(upload);
+        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            var key = await storage.SaveArchiveAsync(fileName, archive, cancellationToken);
+            upload = await db.Uploads.SingleAsync(x => x.Id == upload.Id, cancellationToken);
+            upload.SetStorageKey(key);
+            upload.MarkProcessing();
+            await db.SaveChangesAsync(cancellationToken);
+            if (archive.CanSeek) archive.Position = 0;
+
+            var extractionDirectory = Path.Combine(Path.GetTempPath(), "orgwiki", upload.Id.ToString("N"));
+            var extraction = await extractor.ExtractSupportedFilesAsync(archive, extractionDirectory, cancellationToken);
+            if (extraction.Files.Count == 0) throw new InvalidDataException("The archive contains no supported documents.");
+            var files = extraction.Files;
+            var failed = 0;
+            foreach (var file in files)
+            {
+                var parser = parsers.FirstOrDefault(x => x.Supports(Path.GetExtension(file.FileName)));
+                if (parser is null) continue;
+                var document = new Document(upload.Id, file.FileName, file.RelativePath,
+                    Enum.Parse<DocumentType>(Path.GetExtension(file.FileName).TrimStart('.').Equals("md", StringComparison.OrdinalIgnoreCase) ||
+                    Path.GetExtension(file.FileName).TrimStart('.').Equals("markdown", StringComparison.OrdinalIgnoreCase) ? "Markdown" :
+                    Path.GetExtension(file.FileName).TrimStart('.'), true));
+                try
+                {
+                    if (file.ExtractionError is not null) throw new InvalidDataException(file.ExtractionError);
+                    var parsed = await parser.ParseAsync(file.FullPath, cancellationToken);
+                    var normalized = normalizer.Normalize(parsed.Content);
+                    if (normalized.CharacterCount == 0) throw new InvalidDataException("No extractable text was found in the document.");
+                    if (normalized.CharacterCount > options.Value.MaxNormalizedCharactersPerDocument)
+                        throw new InvalidDataException("Document contains too much text for the current MVP knowledge processing limit.");
+                    document.MarkParsed(normalized.Content, normalized.CharacterCount, normalized.WordCount);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    failed++;
+                    document.MarkFailed(ex.Message);
+                    logger.LogWarning(ex, "Document parsing failed for UploadId {UploadId}, file {FileName}", upload.Id, file.RelativePath);
+                }
+                db.Documents.Add(document);
+            }
+            var totalCharacterCount = db.ChangeTracker.Entries<Document>()
+                .Where(entry => entry.Entity.UploadId == upload.Id && entry.Entity.ProcessingStatus == DocumentProcessingStatus.Parsed)
+                .Sum(entry => entry.Entity.CharacterCount);
+            upload.Complete(extraction.TotalFiles, files.Count, failed, totalCharacterCount);
+            if (totalCharacterCount > options.Value.MaxTotalNormalizedCharacters)
+                upload.SetAnalysisEligibility(false, "The extracted knowledge corpus exceeds the 300,000 character MVP analysis limit.");
+            await db.SaveChangesAsync(cancellationToken);
+            return await GetAsync(upload.Id, cancellationToken) ?? throw new InvalidOperationException("Upload could not be loaded.");
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException)
+        {
+            upload.MarkFailed();
+            await db.SaveChangesAsync(cancellationToken);
+            logger.LogError(ex, "Upload ingestion failed for UploadId {UploadId}", upload.Id);
+            throw;
+        }
+    }
+
+    public async Task<IngestionResult?> GetAsync(Guid uploadId, CancellationToken cancellationToken)
+    {
+        var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId, cancellationToken);
+        if (upload is null) return null;
+        return new IngestionResult(upload.Id, upload.OriginalFileName, upload.Status.ToString(), upload.TotalFiles,
+            upload.SupportedFiles, upload.Documents.Count(x => x.ProcessingStatus == DocumentProcessingStatus.Parsed),
+            upload.FailedFiles, upload.TotalCharacterCount, upload.IsEligibleForAnalysis, upload.AnalysisEligibilityReason,
+            upload.Documents.Select(x => new IngestionDocumentResult(x.Id, x.FileName, x.OriginalPath,
+                x.DocumentType.ToString(), x.ProcessingStatus.ToString(), x.CharacterCount, x.WordCount, x.ProcessingError)).ToList());
+    }
+}
