@@ -66,6 +66,7 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
             entity.Property(x => x.Summary).IsRequired(); entity.Property(x => x.MarkdownContent).IsRequired();
             entity.Property(x => x.Difficulty).HasMaxLength(32).IsRequired(); entity.Property(x => x.TagsJson).IsRequired(); entity.Property(x => x.RelatedArticleKeysJson).IsRequired();
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); entity.HasIndex(x => new { x.GenerationId, x.Key }).IsUnique();
+            entity.Property(x => x.ReviewedBy).HasMaxLength(128); entity.Property(x => x.LastEditedBy).HasMaxLength(128);
             entity.HasOne<KnowledgeGeneration>().WithMany().HasForeignKey(x => x.GenerationId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<GeneratedArticleCitation>(entity =>

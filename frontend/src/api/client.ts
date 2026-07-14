@@ -32,6 +32,9 @@ export type DiscoveryResult = { domains: { key: string; name: string; descriptio
 export type AnalysisResult = { analysisId: string; uploadId: string; status: string; aiMode: string; model: string; documentsAnalyzed: number; corpusCharacterCount: number; inputTokens: number | null; outputTokens: number | null; totalTokens: number | null; durationMilliseconds: number | null; errorMessage: string | null; discovery: DiscoveryResult | null }
 export type GeneratedArticle = { key: string; title: string; summary: string; markdownContent: string; difficulty: string; estimatedReadingMinutes: number; tags: string[]; relatedArticleKeys: string[]; confidence: number; citations: { sourceDocumentId: string; evidenceSnippet: string }[] }
 export type GenerationResult = { generationId: string; analysisId: string; status: string; aiMode: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; durationMilliseconds: number | null; errorMessage: string | null; result: { articles: GeneratedArticle[] } | null }
+export type ReviewListArticle = { id: string; key: string; title: string; summary: string; status: string; confidence: number; citationCount: number; lastEditedAtUtc: string | null; tags: string[]; difficulty: string; estimatedReadingMinutes: number; domain: string }
+export type ReviewDashboard = { pendingReview: number; approved: number; rejected: number; published: number; articles: ReviewListArticle[] }
+export type ReviewArticle = ReviewListArticle & { key: string; markdownContent: string; relatedArticleKeys: string[]; reviewNotes: string | null; reviewedAtUtc: string | null; reviewedBy: string | null; lastEditedBy: string | null; citations: { sourceDocumentId: string; fileName: string; originalPath: string; evidenceSnippet: string }[]; availableRelatedArticles: ReviewListArticle[]; quality: { citationCount: number; sourceDocumentCount: number; confidence: number; relatedArticleCount: number; linkedConflictCount: number; potentiallyOutdatedCount: number } }
 
 export async function getHealth(): Promise<HealthStatus> {
   const response = await fetch(`${apiBaseUrl}/health`)
@@ -89,3 +92,29 @@ export async function getGeneration(generationId: string): Promise<GenerationRes
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<GenerationResult>
 }
+
+export async function getReviewDashboard(): Promise<ReviewDashboard> {
+  const response = await fetch(`${apiBaseUrl}/api/review`)
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<ReviewDashboard>
+}
+
+export async function getReviewArticle(id: string): Promise<ReviewArticle> {
+  const response = await fetch(`${apiBaseUrl}/api/review/articles/${id}`)
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<ReviewArticle>
+}
+
+export async function updateReviewArticle(id: string, article: Pick<ReviewArticle, 'title' | 'summary' | 'markdownContent' | 'difficulty' | 'estimatedReadingMinutes' | 'tags' | 'relatedArticleKeys'>): Promise<ReviewArticle> {
+  const response = await fetch(`${apiBaseUrl}/api/review/articles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(article) })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<ReviewArticle>
+}
+
+async function reviewAction(id: string, action: 'approve' | 'reject', notes: string): Promise<ReviewArticle> {
+  const response = await fetch(`${apiBaseUrl}/api/review/articles/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes }) })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<ReviewArticle>
+}
+export const approveReviewArticle = (id: string, notes: string) => reviewAction(id, 'approve', notes)
+export const rejectReviewArticle = (id: string, notes: string) => reviewAction(id, 'reject', notes)

@@ -238,6 +238,20 @@ public sealed class IngestionTests
         Assert.Null(response.Usage); Assert.Single(response.Result.Articles); Assert.Equal("authentication", response.Result.Articles[0].Key);
     }
 
+    [Fact]
+    public void Review_actions_edit_content_without_mutating_generated_provenance()
+    {
+        var article = new GeneratedArticle(Guid.NewGuid(), "authentication", "Authentication", "Summary", "# Authentication", "Intermediate", 5, "[\"Security\"]", "[]", .94);
+        var citation = new GeneratedArticleCitation(article.Id, Guid.NewGuid(), "Exact source evidence.");
+        article.Citations.Add(citation);
+        article.Edit("Authentication Guide", "Edited summary", "# Edited", "Advanced", 8, "[\"Security\",\"JWT\"]", "[]", "reviewer");
+        article.Approve("reviewer", "Verified citations.");
+        Assert.Equal("Authentication Guide", article.Title); Assert.Equal(GeneratedArticleStatus.Approved, article.Status);
+        Assert.Equal(.94, article.Confidence); Assert.Single(article.Citations); Assert.Equal("Exact source evidence.", article.Citations[0].EvidenceSnippet);
+        article.Reject("reviewer", "Needs clarification.");
+        Assert.Equal(GeneratedArticleStatus.Rejected, article.Status); Assert.Equal("Needs clarification.", article.ReviewNotes);
+    }
+
     private static string TempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "orgwiki-tests", Guid.NewGuid().ToString("N"));

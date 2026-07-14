@@ -18,5 +18,16 @@ public sealed class GeneratedArticle
     public double Confidence { get; private set; }
     public GeneratedArticleStatus Status { get; private set; }
     public DateTime GeneratedAtUtc { get; private set; }
+    public string? ReviewedBy { get; private set; }
+    public DateTime? ReviewedAtUtc { get; private set; }
+    public string? ReviewNotes { get; private set; }
+    public DateTime? LastEditedAtUtc { get; private set; }
+    public string? LastEditedBy { get; private set; }
     public List<GeneratedArticleCitation> Citations { get; private set; } = [];
+    public void Edit(string title, string summary, string markdownContent, string difficulty, int estimatedReadingMinutes, string tagsJson, string relatedArticleKeysJson, string reviewer)
+    { Title = title; Summary = summary; MarkdownContent = markdownContent; Difficulty = difficulty; EstimatedReadingMinutes = estimatedReadingMinutes; TagsJson = tagsJson; RelatedArticleKeysJson = relatedArticleKeysJson; LastEditedAtUtc = DateTime.UtcNow; LastEditedBy = reviewer; }
+    public void Approve(string reviewer, string? notes)
+    { Status = GeneratedArticleStatus.Approved; ReviewedBy = reviewer; ReviewedAtUtc = DateTime.UtcNow; ReviewNotes = notes; }
+    public void Reject(string reviewer, string? notes)
+    { Status = GeneratedArticleStatus.Rejected; ReviewedBy = reviewer; ReviewedAtUtc = DateTime.UtcNow; ReviewNotes = notes; }
 }

@@ -2,5 +2,8 @@ namespace OrgWiki.Domain.Analysis;
 
 public enum GeneratedArticleStatus
 {
-    PendingReview
+    PendingReview,
+    Approved,
+    Rejected,
+    Published
 }
