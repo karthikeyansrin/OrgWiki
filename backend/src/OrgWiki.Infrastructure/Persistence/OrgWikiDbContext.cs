@@ -9,6 +9,9 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
     public DbSet<Upload> Uploads => Set<Upload>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<KnowledgeAnalysis> KnowledgeAnalyses => Set<KnowledgeAnalysis>();
+    public DbSet<KnowledgeGeneration> KnowledgeGenerations => Set<KnowledgeGeneration>();
+    public DbSet<GeneratedArticle> GeneratedArticles => Set<GeneratedArticle>();
+    public DbSet<GeneratedArticleCitation> GeneratedArticleCitations => Set<GeneratedArticleCitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +49,30 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
             entity.HasIndex(x => x.UploadId).HasFilter("\"IsCurrent\" = TRUE").IsUnique();
             entity.HasIndex(x => new { x.UploadId, x.Status });
             entity.HasOne<Upload>().WithMany().HasForeignKey(x => x.UploadId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<KnowledgeGeneration>(entity =>
+        {
+            entity.ToTable("knowledge_generations"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.Property(x => x.AiMode).HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(x => x.Model).HasMaxLength(128).IsRequired(); entity.Property(x => x.IsCurrent).IsRequired();
+            entity.HasIndex(x => x.AnalysisId).HasFilter("\"IsCurrent\" = TRUE").IsUnique();
+            entity.HasOne<KnowledgeAnalysis>().WithMany().HasForeignKey(x => x.AnalysisId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<GeneratedArticle>(entity =>
+        {
+            entity.ToTable("generated_articles"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.Key).HasMaxLength(128).IsRequired(); entity.Property(x => x.Title).HasMaxLength(512).IsRequired();
+            entity.Property(x => x.Summary).IsRequired(); entity.Property(x => x.MarkdownContent).IsRequired();
+            entity.Property(x => x.Difficulty).HasMaxLength(32).IsRequired(); entity.Property(x => x.TagsJson).IsRequired(); entity.Property(x => x.RelatedArticleKeysJson).IsRequired();
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); entity.HasIndex(x => new { x.GenerationId, x.Key }).IsUnique();
+            entity.HasOne<KnowledgeGeneration>().WithMany().HasForeignKey(x => x.GenerationId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<GeneratedArticleCitation>(entity =>
+        {
+            entity.ToTable("generated_article_citations"); entity.HasKey(x => x.Id); entity.Property(x => x.EvidenceSnippet).IsRequired();
+            entity.HasIndex(x => x.GeneratedArticleId); entity.HasOne(x => x.Article).WithMany(x => x.Citations).HasForeignKey(x => x.GeneratedArticleId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<OrgWiki.Domain.Ingestion.Document>().WithMany().HasForeignKey(x => x.SourceDocumentId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

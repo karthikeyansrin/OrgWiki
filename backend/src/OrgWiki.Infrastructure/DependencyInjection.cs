@@ -47,6 +47,10 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeDiscoveryValidator, KnowledgeDiscoveryValidator>();
         services.AddScoped<DeterministicCorpusBuilder>();
         services.AddScoped<IKnowledgeAnalysisService, KnowledgeAnalysisService>();
+        services.AddScoped<IKnowledgeGenerationProvider, ReplayKnowledgeGenerationProvider>();
+        services.AddScoped<IKnowledgeGenerationProvider, OpenAiKnowledgeGenerationProvider>();
+        services.AddScoped<IKnowledgeGenerationValidator, KnowledgeGenerationValidator>();
+        services.AddScoped<IKnowledgeGenerationService, KnowledgeGenerationService>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IZipArchiveExtractor, SafeZipArchiveExtractor>();
         services.AddScoped<IContentNormalizer, ContentNormalizer>();

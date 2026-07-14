@@ -202,6 +202,42 @@ public sealed class IngestionTests
         Assert.Equal(1, outdatedTopics.Count(x => x.Any(articleTopics.Contains)));
     }
 
+    [Fact]
+    public void Generation_schema_requires_articles_and_metadata()
+    {
+        var json = KnowledgeGenerationSchema.CreateResponseFormat().ToJsonString();
+        Assert.Contains("orgwiki_knowledge_generation", json);
+        Assert.Contains("markdownContent", json);
+        Assert.Contains("estimatedReadingMinutes", json);
+        Assert.Contains("Beginner", json); Assert.Contains("Advanced", json);
+        Assert.Contains("\"minimum\":0", json); Assert.Contains("\"maximum\":1", json);
+    }
+
+    [Fact]
+    public void Generation_validator_accepts_exact_citation_and_rejects_paraphrase()
+    {
+        var id = Guid.NewGuid();
+        var source = new GenerationSource(id, "auth.txt", "auth.txt", "Text", "Access tokens expire after 60 minutes.");
+        var proposal = new DiscoverySuggestedArticle("authentication", "Authentication", "Authentication guidance.", "engineering", ["auth"], [id], "The topic is important.", .9);
+        var context = new GenerationArticleContext(proposal, new("engineering", "Engineering", "Technical guidance.", .9), [new("auth", "Authentication", "Identity guidance.", "engineering", .9, [id])], [], [], [], [source]);
+        var request = new KnowledgeGenerationRequest(Guid.NewGuid(), [context]);
+        var valid = new KnowledgeGenerationResult([new("authentication", "Authentication", "Authentication guidance.", "# Authentication\n\nAccess tokens expire after 60 minutes.", "Intermediate", 5, ["Security"], [], .9, [new(id, "Access tokens expire after 60 minutes.")])]);
+        new KnowledgeGenerationValidator().Validate(valid, request);
+        var invalid = valid with { Articles = [valid.Articles[0] with { Citations = [new(id, "Access tokens expire after one hour.")] }] };
+        Assert.Throws<InvalidDataException>(() => new KnowledgeGenerationValidator().Validate(invalid, request));
+    }
+
+    [Fact]
+    public async Task Replay_generation_provider_makes_no_usage_call()
+    {
+        var id = Guid.NewGuid();
+        var source = new GenerationSource(id, "auth.txt", "auth.txt", "Text", "Authentication guidance.");
+        var proposal = new DiscoverySuggestedArticle("authentication", "Authentication", "Authentication guidance.", "engineering", ["auth"], [id], "The topic is important.", .9);
+        var request = new KnowledgeGenerationRequest(Guid.NewGuid(), [new GenerationArticleContext(proposal, new("engineering", "Engineering", "Technical guidance.", .9), [new("auth", "Authentication", "Identity guidance.", "engineering", .9, [id])], [], [], [], [source])]);
+        var response = await new ReplayKnowledgeGenerationProvider(Options.Create(new KnowledgeAnalysisOptions { ReplayGenerationFixturePath = "missing-fixture.json" })).GenerateAsync(request, default);
+        Assert.Null(response.Usage); Assert.Single(response.Result.Articles); Assert.Equal("authentication", response.Result.Articles[0].Key);
+    }
+
     private static string TempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "orgwiki-tests", Guid.NewGuid().ToString("N"));

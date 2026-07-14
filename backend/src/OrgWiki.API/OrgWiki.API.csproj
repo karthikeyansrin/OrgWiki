@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Update="replay-knowledge-discovery.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="replay-knowledge-generation.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

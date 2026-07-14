@@ -5,6 +5,7 @@ import { SystemPage } from './pages/SystemPage'
 import { ImportPage } from './pages/ImportPage'
 import { UploadDetailsPage } from './pages/UploadDetailsPage'
 import { AnalysisPage } from './pages/AnalysisPage'
+import { GeneratedArticlesPage } from './pages/GeneratedArticlesPage'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="import" element={<ImportPage />} />
         <Route path="uploads/:uploadId" element={<UploadDetailsPage />} />
         <Route path="analyses/:analysisId" element={<AnalysisPage />} />
+        <Route path="generations/:generationId" element={<GeneratedArticlesPage />} />
       </Route>
     </Routes>
   )

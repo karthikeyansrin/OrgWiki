@@ -1,0 +1,16 @@
+{
+  "articles": [
+    {
+      "key": "authentication-overview",
+      "title": "Authentication Overview",
+      "summary": "How the organization authenticates users and services.",
+      "markdownContent": "# Authentication Overview\n\nThis article summarizes the supplied authentication guidance.",
+      "difficulty": "Intermediate",
+      "estimatedReadingMinutes": 5,
+      "tags": ["Authentication", "Security"],
+      "relatedArticleKeys": [],
+      "confidence": 0.9,
+      "citations": []
+    }
+  ]
+}
