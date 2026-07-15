@@ -51,6 +51,13 @@ public sealed class ReviewService(OrgWikiDbContext db) : IReviewService
         article.Reject(Reviewer, notes?.Trim()); await db.SaveChangesAsync(cancellationToken); return await GetArticleAsync(articleId, cancellationToken);
     }
 
+    public async Task<ReviewArticleDetails?> PublishAsync(Guid articleId, CancellationToken cancellationToken)
+    {
+        var article = await db.GeneratedArticles.SingleOrDefaultAsync(x => x.Id == articleId, cancellationToken); if (article is null) return null;
+        if (article.Status != GeneratedArticleStatus.Published && await db.GeneratedArticles.AnyAsync(x => x.Id != article.Id && x.Key == article.Key && x.Status == GeneratedArticleStatus.Published, cancellationToken)) throw new InvalidOperationException("A published article with this key already exists.");
+        article.Publish(Reviewer); await db.SaveChangesAsync(cancellationToken); return await GetArticleAsync(articleId, cancellationToken);
+    }
+
     async Task<ReviewArticleDetails> Details(GeneratedArticle article, CancellationToken cancellationToken)
     {
         if (article.Citations.Count == 0) await db.Entry(article).Collection(x => x.Citations).LoadAsync(cancellationToken);

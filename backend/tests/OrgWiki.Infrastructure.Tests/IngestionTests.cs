@@ -104,7 +104,7 @@ public sealed class IngestionTests
             .Where(type => typeof(Migration).IsAssignableFrom(type))
             .Select(type => (type, attribute: type.GetCustomAttributes(typeof(MigrationAttribute), false).Cast<MigrationAttribute>().SingleOrDefault()))
             .ToList();
-        Assert.Contains(migrations, migration => migration.attribute?.Id == "20260714103000_Phase2DocumentIngestion");
+        Assert.Contains(migrations, migration => migration.attribute?.Id.EndsWith("_InitialOrgWikiSchema") == true);
     }
 
     [Fact]
@@ -250,6 +250,23 @@ public sealed class IngestionTests
         Assert.Equal(.94, article.Confidence); Assert.Single(article.Citations); Assert.Equal("Exact source evidence.", article.Citations[0].EvidenceSnippet);
         article.Reject("reviewer", "Needs clarification.");
         Assert.Equal(GeneratedArticleStatus.Rejected, article.Status); Assert.Equal("Needs clarification.", article.ReviewNotes);
+    }
+
+    [Fact]
+    public void Only_approved_articles_can_publish_and_publishing_is_idempotent()
+    {
+        var pending = new GeneratedArticle(Guid.NewGuid(), "pending", "Pending", "Summary", "# Pending", "Beginner", 1, "[]", "[]", .8);
+        Assert.Throws<InvalidOperationException>(() => pending.Publish("publisher"));
+        var rejected = new GeneratedArticle(Guid.NewGuid(), "rejected", "Rejected", "Summary", "# Rejected", "Beginner", 1, "[]", "[]", .8); rejected.Reject("reviewer", null);
+        Assert.Throws<InvalidOperationException>(() => rejected.Publish("publisher"));
+        var approved = new GeneratedArticle(Guid.NewGuid(), "approved", "Approved", "Summary", "# Approved", "Intermediate", 5, "[]", "[]", .94);
+        var citation = new GeneratedArticleCitation(approved.Id, Guid.NewGuid(), "Exact evidence."); approved.Citations.Add(citation); approved.Approve("reviewer", "Approved.");
+        approved.Publish("publisher"); var publishedAt = approved.PublishedAtUtc;
+        approved.Publish("another-publisher");
+        Assert.Equal(GeneratedArticleStatus.Published, approved.Status); Assert.NotNull(publishedAt); Assert.Equal(publishedAt, approved.PublishedAtUtc); Assert.Equal("publisher", approved.PublishedBy);
+        Assert.Equal(.94, approved.Confidence); Assert.Single(approved.Citations); Assert.Equal("Exact evidence.", approved.Citations[0].EvidenceSnippet);
+        Assert.Throws<InvalidOperationException>(() => approved.Edit("Changed", "Summary", "# Changed", "Intermediate", 3, "[]", "[]", "reviewer"));
+        Assert.Throws<InvalidOperationException>(() => approved.Reject("reviewer", null));
     }
 
     private static string TempDirectory()

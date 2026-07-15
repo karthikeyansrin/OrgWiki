@@ -1,4 +1,4 @@
-import { Archive, BookOpenText, HeartPulse, Network, ClipboardCheck } from 'lucide-react'
+import { Archive, BookOpenText, HeartPulse, Network, ClipboardCheck, Library } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navigation = [
@@ -6,6 +6,7 @@ const navigation = [
   { to: '/system', label: 'System', icon: HeartPulse },
   { to: '/import', label: 'Import', icon: Archive },
   { to: '/review', label: 'Review', icon: ClipboardCheck },
+  { to: '/knowledge', label: 'Knowledge Base', icon: Library },
 ]
 
 export function AppLayout() {

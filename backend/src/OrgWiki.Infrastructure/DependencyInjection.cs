@@ -10,6 +10,8 @@ using OrgWiki.Application.Analysis;
 using OrgWiki.Infrastructure.Analysis;
 using OrgWiki.Application.Review;
 using OrgWiki.Infrastructure.Review;
+using OrgWiki.Application.KnowledgeBase;
+using OrgWiki.Infrastructure.KnowledgeBase;
 
 namespace OrgWiki.Infrastructure;
 
@@ -51,9 +53,11 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeAnalysisService, KnowledgeAnalysisService>();
         services.AddScoped<IKnowledgeGenerationProvider, ReplayKnowledgeGenerationProvider>();
         services.AddScoped<IKnowledgeGenerationProvider, OpenAiKnowledgeGenerationProvider>();
+        services.AddScoped<KnowledgeGenerationContextBuilder>();
         services.AddScoped<IKnowledgeGenerationValidator, KnowledgeGenerationValidator>();
         services.AddScoped<IKnowledgeGenerationService, KnowledgeGenerationService>();
         services.AddScoped<IReviewService, ReviewService>();
+        services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IZipArchiveExtractor, SafeZipArchiveExtractor>();
         services.AddScoped<IContentNormalizer, ContentNormalizer>();

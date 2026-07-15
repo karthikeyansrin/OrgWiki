@@ -8,6 +8,8 @@ import { AnalysisPage } from './pages/AnalysisPage'
 import { GeneratedArticlesPage } from './pages/GeneratedArticlesPage'
 import { ReviewDashboardPage } from './pages/ReviewDashboardPage'
 import { ReviewArticlePage } from './pages/ReviewArticlePage'
+import { KnowledgeBasePage } from './pages/KnowledgeBasePage'
+import { KnowledgeArticlePage } from './pages/KnowledgeArticlePage'
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="generations/:generationId" element={<GeneratedArticlesPage />} />
         <Route path="review" element={<ReviewDashboardPage />} />
         <Route path="review/articles/:articleId" element={<ReviewArticlePage />} />
+        <Route path="knowledge" element={<KnowledgeBasePage />} />
+        <Route path="knowledge/articles/:articleKey" element={<KnowledgeArticlePage />} />
       </Route>
     </Routes>
   )

@@ -35,6 +35,9 @@ export type GenerationResult = { generationId: string; analysisId: string; statu
 export type ReviewListArticle = { id: string; key: string; title: string; summary: string; status: string; confidence: number; citationCount: number; lastEditedAtUtc: string | null; tags: string[]; difficulty: string; estimatedReadingMinutes: number; domain: string }
 export type ReviewDashboard = { pendingReview: number; approved: number; rejected: number; published: number; articles: ReviewListArticle[] }
 export type ReviewArticle = ReviewListArticle & { key: string; markdownContent: string; relatedArticleKeys: string[]; reviewNotes: string | null; reviewedAtUtc: string | null; reviewedBy: string | null; lastEditedBy: string | null; citations: { sourceDocumentId: string; fileName: string; originalPath: string; evidenceSnippet: string }[]; availableRelatedArticles: ReviewListArticle[]; quality: { citationCount: number; sourceDocumentCount: number; confidence: number; relatedArticleCount: number; linkedConflictCount: number; potentiallyOutdatedCount: number } }
+export type KnowledgeArticleSummary = { key: string; title: string; summary: string; domain: string; tags: string[]; difficulty: string; estimatedReadingMinutes: number; publishedAtUtc: string; relatedArticleCount: number }
+export type KnowledgeBaseHome = { publishedArticleCount: number; domains: string[]; tags: string[]; articles: KnowledgeArticleSummary[] }
+export type KnowledgeArticle = KnowledgeArticleSummary & { markdownContent: string; relatedArticles: { key: string; title: string; summary: string }[]; citations: { sourceFileName: string; sourcePath: string; evidenceSnippet: string }[] }
 
 export async function getHealth(): Promise<HealthStatus> {
   const response = await fetch(`${apiBaseUrl}/health`)
@@ -118,3 +121,11 @@ async function reviewAction(id: string, action: 'approve' | 'reject', notes: str
 }
 export const approveReviewArticle = (id: string, notes: string) => reviewAction(id, 'approve', notes)
 export const rejectReviewArticle = (id: string, notes: string) => reviewAction(id, 'reject', notes)
+export async function publishReviewArticle(id: string): Promise<ReviewArticle> {
+  const response = await fetch(`${apiBaseUrl}/api/review/articles/${id}/publish`, { method: 'POST' })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<ReviewArticle>
+}
+export async function getKnowledgeBase(): Promise<KnowledgeBaseHome> { const response = await fetch(`${apiBaseUrl}/api/knowledge`); if (!response.ok) throw new Error(await readError(response)); return response.json() as Promise<KnowledgeBaseHome> }
+export async function searchKnowledge(query: string): Promise<KnowledgeArticleSummary[]> { const response = await fetch(`${apiBaseUrl}/api/knowledge/search?q=${encodeURIComponent(query)}`); if (!response.ok) throw new Error(await readError(response)); return response.json() as Promise<KnowledgeArticleSummary[]> }
+export async function getKnowledgeArticle(key: string): Promise<KnowledgeArticle> { const response = await fetch(`${apiBaseUrl}/api/knowledge/articles/${encodeURIComponent(key)}`); if (!response.ok) throw new Error(await readError(response)); return response.json() as Promise<KnowledgeArticle> }
