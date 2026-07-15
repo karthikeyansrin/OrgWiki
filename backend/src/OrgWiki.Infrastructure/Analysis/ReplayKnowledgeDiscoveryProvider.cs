@@ -38,8 +38,16 @@ public sealed class ReplayKnowledgeDiscoveryProvider(IOptions<KnowledgeAnalysisO
     static void Replace(JsonNode node, CorpusDocument first, CorpusDocument second)
     {
         if (node is JsonValue value && value.TryGetValue<string>(out var text))
-        { var replaced = text.Replace("FIRST", first.Id.ToString()).Replace("SECOND", second.Id.ToString()).Replace("FIRST_SNIPPET", first.Content[..Math.Min(40, first.Content.Length)]).Replace("SECOND_SNIPPET", second.Content[..Math.Min(40, second.Content.Length)]); value.ReplaceWith(JsonValue.Create(replaced)); return; }
+        {
+            var replaced = text
+                .Replace("FIRST_SNIPPET", first.Content[..Math.Min(40, first.Content.Length)])
+                .Replace("SECOND_SNIPPET", second.Content[..Math.Min(40, second.Content.Length)])
+                .Replace("FIRST", first.Id.ToString())
+                .Replace("SECOND", second.Id.ToString());
+            value.ReplaceWith(JsonValue.Create(replaced));
+            return;
+        }
         if (node is JsonObject obj) foreach (var child in obj.ToList()) if (child.Value is not null) Replace(child.Value, first, second);
-        if (node is JsonArray array) foreach (var child in array) if (child is not null) Replace(child, first, second);
+        if (node is JsonArray array) foreach (var child in array.ToList()) if (child is not null) Replace(child, first, second);
     }
 }

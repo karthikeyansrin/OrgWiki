@@ -39,10 +39,11 @@ public sealed class IngestionService(
             {
                 var parser = parsers.FirstOrDefault(x => x.Supports(Path.GetExtension(file.FileName)));
                 if (parser is null) continue;
-                var document = new Document(upload.Id, file.FileName, file.RelativePath,
-                    Enum.Parse<DocumentType>(Path.GetExtension(file.FileName).TrimStart('.').Equals("md", StringComparison.OrdinalIgnoreCase) ||
-                    Path.GetExtension(file.FileName).TrimStart('.').Equals("markdown", StringComparison.OrdinalIgnoreCase) ? "Markdown" :
-                    Path.GetExtension(file.FileName).TrimStart('.'), true));
+                var document = new Document(
+                    upload.Id,
+                    file.FileName,
+                    file.RelativePath,
+                    GetDocumentType(file.FileName));
                 try
                 {
                     if (file.ExtractionError is not null) throw new InvalidDataException(file.ExtractionError);
@@ -70,7 +71,7 @@ public sealed class IngestionService(
             await db.SaveChangesAsync(cancellationToken);
             return await GetAsync(upload.Id, cancellationToken) ?? throw new InvalidOperationException("Upload could not be loaded.");
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             upload.MarkFailed();
             await db.SaveChangesAsync(cancellationToken);
@@ -88,5 +89,17 @@ public sealed class IngestionService(
             upload.FailedFiles, upload.TotalCharacterCount, upload.IsEligibleForAnalysis, upload.AnalysisEligibilityReason,
             upload.Documents.Select(x => new IngestionDocumentResult(x.Id, x.FileName, x.OriginalPath,
                 x.DocumentType.ToString(), x.ProcessingStatus.ToString(), x.CharacterCount, x.WordCount, x.ProcessingError)).ToList());
+    }
+
+    private static DocumentType GetDocumentType(string fileName)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".pdf" => DocumentType.Pdf,
+            ".docx" => DocumentType.Docx,
+            ".md" or ".markdown" => DocumentType.Markdown,
+            ".txt" => DocumentType.Text,
+            _ => throw new InvalidDataException($"Unsupported document type: {fileName}")
+        };
     }
 }

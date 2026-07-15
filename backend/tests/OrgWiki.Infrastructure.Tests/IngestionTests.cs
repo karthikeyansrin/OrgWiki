@@ -138,6 +138,37 @@ public sealed class IngestionTests
     }
 
     [Fact]
+    public async Task Replay_provider_replaces_fixture_values_for_multiple_documents_without_mutating_enumeration()
+    {
+        var fixturePath = Path.GetTempFileName();
+        await File.WriteAllTextAsync(fixturePath, """
+            {"domains":[],"topics":[{"key":"topic","name":"Topic","description":"Description","domainKey":"domain","confidence":0.5,"sourceDocumentIds":["FIRST"]}],"relationships":[],"duplicateGroups":[],"conflicts":[],"outdatedCandidates":[],"suggestedArticles":[]}
+            """);
+
+        try
+        {
+            var firstId = Guid.NewGuid();
+            var secondId = Guid.NewGuid();
+            var request = new KnowledgeDiscoveryRequest(
+                Guid.NewGuid(),
+                [
+                    new CorpusDocument(firstId, "first.txt", "first.txt", "Text", "First source", 12),
+                    new CorpusDocument(secondId, "second.txt", "second.txt", "Text", "Second source", 13)
+                ],
+                "corpus");
+            var provider = new ReplayKnowledgeDiscoveryProvider(Options.Create(new KnowledgeAnalysisOptions { ReplayFixturePath = fixturePath }));
+
+            var response = await provider.DiscoverAsync(request, default);
+
+            Assert.Equal(firstId, response.Result.Topics[0].SourceDocumentIds[0]);
+        }
+        finally
+        {
+            File.Delete(fixturePath);
+        }
+    }
+
+    [Fact]
     public void Schema_requires_all_collections_and_exact_relationship_enum()
     {
         var json = KnowledgeDiscoverySchema.CreateResponseFormat().ToJsonString();

@@ -1,16 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, GitBranch, LoaderCircle, Network } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getAnalysis, startGeneration } from '../api/client'
+import { getAnalysis, startAnalysis, startGeneration } from '../api/client'
 
 export function AnalysisPage() {
   const { analysisId = '' } = useParams()
   const navigate = useNavigate()
   const query = useQuery({ queryKey: ['analysis', analysisId], queryFn: () => getAnalysis(analysisId), enabled: Boolean(analysisId) })
   const generation = useMutation({ mutationFn: () => startGeneration(analysisId), onSuccess: result => navigate(`/generations/${result.generationId}`) })
+  const retryAnalysis = useMutation({ mutationFn: async () => {
+    const current = query.data
+    if (!current) throw new Error('The analysis is not available to retry.')
+    return startAnalysis(current.uploadId, true)
+  }, onSuccess: result => navigate(`/analyses/${result.analysisId}`) })
   if (query.isLoading) return <div className="flex items-center gap-3 text-slate-600"><LoaderCircle className="animate-spin" size={20} />Understanding your documents…</div>
   if (query.isError) return <div className="rounded-xl bg-rose-50 p-5 text-rose-700">{query.error.message}</div>
   const analysis = query.data!
+  if (analysis.status === 'Failed') {
+    return <section className="mx-auto max-w-2xl"><Link to={`/uploads/${analysis.uploadId}`} className="text-sm font-semibold text-teal-700">Back to archive</Link><div className="mt-8 rounded-xl bg-rose-50 p-6"><h1 className="text-2xl font-semibold text-rose-900">Knowledge analysis could not be completed</h1><p className="mt-2 text-rose-800">{analysis.errorMessage ?? 'No additional AI request was made automatically. You can retry manually.'}</p><button type="button" disabled={retryAnalysis.isPending} onClick={() => retryAnalysis.mutate()} className="mt-5 rounded-lg bg-rose-800 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{retryAnalysis.isPending ? 'Retrying analysis...' : 'Retry analysis'}</button>{retryAnalysis.isError && <p className="mt-3 text-sm text-rose-800">{retryAnalysis.error.message}</p>}</div></section>
+  }
   if (analysis.status === 'Failed') return <section className="mx-auto max-w-2xl"><Link to={`/uploads/${analysis.uploadId}`} className="text-sm font-semibold text-teal-700">← Back to archive</Link><div className="mt-8 rounded-xl bg-rose-50 p-6"><h1 className="text-2xl font-semibold text-rose-900">Knowledge analysis could not be completed</h1><p className="mt-2 text-rose-800">{analysis.errorMessage ?? 'No additional AI request was made automatically. You can retry manually from the archive.'}</p></div></section>
   const d = analysis.discovery
   if (!d) return <div className="flex items-center gap-3 text-slate-600"><LoaderCircle className="animate-spin" size={20} />Mapping your knowledge…</div>
