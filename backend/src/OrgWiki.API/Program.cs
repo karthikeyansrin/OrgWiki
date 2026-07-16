@@ -18,13 +18,20 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<JwtOptions>(options =>
+{
+    builder.Configuration.GetSection(JwtOptions.SectionName).Bind(options);
+    options.SigningKey = builder.Configuration["JWT_SIGNING_KEY"] ?? options.SigningKey;
+});
 builder.Services.AddOptions<JwtOptions>()
     .Validate(options => !string.IsNullOrWhiteSpace(options.Issuer) && !string.IsNullOrWhiteSpace(options.Audience), "JWT issuer and audience are required.")
-    .Validate(options => options.SecretKey.Length >= 32, "JWT secret key must be at least 32 characters.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.SigningKey), "JWT SigningKey is not configured.")
+    .Validate(options => options.SigningKey.Length >= 32, "JWT SigningKey must be at least 32 characters.")
     .Validate(options => options.ExpirationMinutes > 0, "JWT expiration must be positive.")
     .ValidateOnStart();
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+jwt.SigningKey = builder.Configuration["JWT_SIGNING_KEY"] ?? jwt.SigningKey;
+if (string.IsNullOrWhiteSpace(jwt.SigningKey)) throw new InvalidOperationException("JWT SigningKey is not configured.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -36,7 +43,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidAudience = jwt.Audience,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1),
             NameClaimType = "name"
@@ -51,13 +58,24 @@ builder.Services.Configure<OpenAiOptions>(options =>
 {
     builder.Configuration.GetSection(OpenAiOptions.SectionName).Bind(options);
     options.ApiKey = builder.Configuration["OPENAI_API_KEY"] ?? options.ApiKey;
+    options.Mode = builder.Configuration["OPENAI_MODE"] ?? options.Mode;
+    options.Model = builder.Configuration["OPENAI_MODEL"] ?? options.Model;
+    if (bool.TryParse(builder.Configuration["OPENAI_VERBOSE_LOGGING"], out var verboseLogging)) options.VerboseLogging = verboseLogging;
 });
 builder.Services.Configure<KnowledgeAnalysisOptions>(options =>
 {
     builder.Configuration.GetSection(OpenAiOptions.SectionName).Bind(options);
     options.ApiKey = builder.Configuration["OPENAI_API_KEY"] ?? options.ApiKey;
+    options.Mode = builder.Configuration["OPENAI_MODE"] ?? options.Mode;
+    options.Model = builder.Configuration["OPENAI_MODEL"] ?? options.Model;
+    if (bool.TryParse(builder.Configuration["OPENAI_VERBOSE_LOGGING"], out var verboseLogging)) options.VerboseLogging = verboseLogging;
 });
-builder.Services.AddOptions<KnowledgeAnalysisOptions>().Validate(options => options.TimeoutSeconds > 0, "OpenAI timeout must be positive.").ValidateOnStart();
+builder.Services.AddOptions<KnowledgeAnalysisOptions>()
+    .Validate(options => options.TimeoutSeconds > 0, "OpenAI timeout must be positive.")
+    .Validate(options => string.Equals(options.Mode, "Replay", StringComparison.OrdinalIgnoreCase) || string.Equals(options.Mode, "Live", StringComparison.OrdinalIgnoreCase), "OpenAI mode must be Replay or Live.")
+    .Validate(options => !string.Equals(options.Mode, "Live", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(options.ApiKey), "OPENAI_API_KEY is required when OpenAI mode is Live.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "OpenAI model is required.")
+    .ValidateOnStart();
 
 builder.Services.Configure<StorageOptions>(options =>
 {

@@ -11,7 +11,7 @@ public sealed record GenerationArticleContext(
     IReadOnlyList<DiscoveryConflict> Conflicts,
     IReadOnlyList<DiscoveryOutdatedCandidate> OutdatedCandidates,
     IReadOnlyList<GenerationSource> Sources);
-public sealed record KnowledgeGenerationRequest(Guid AnalysisId, IReadOnlyList<GenerationArticleContext> Articles);
+public sealed record KnowledgeGenerationRequest(Guid AnalysisId, IReadOnlyList<GenerationArticleContext> Articles, Guid? GenerationId = null);
 public sealed record GeneratedCitation(Guid SourceDocumentId, string EvidenceSnippet);
 public sealed record GeneratedArticleDraft(
     string Key,

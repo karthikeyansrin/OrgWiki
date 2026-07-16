@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { OverviewPage } from './pages/OverviewPage'
-import { SystemPage } from './pages/SystemPage'
 import { ImportPage } from './pages/ImportPage'
 import { UploadDetailsPage } from './pages/UploadDetailsPage'
 import { AnalysisPage } from './pages/AnalysisPage'

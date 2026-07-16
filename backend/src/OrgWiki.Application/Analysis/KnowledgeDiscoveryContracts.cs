@@ -3,7 +3,7 @@ using OrgWiki.Domain.Analysis;
 namespace OrgWiki.Application.Analysis;
 
 public sealed record CorpusDocument(Guid Id, string FileName, string OriginalPath, string DocumentType, string Content, int CharacterCount);
-public sealed record KnowledgeDiscoveryRequest(Guid UploadId, IReadOnlyList<CorpusDocument> Documents, string CorpusText);
+public sealed record KnowledgeDiscoveryRequest(Guid UploadId, IReadOnlyList<CorpusDocument> Documents, string CorpusText, Guid? AnalysisId = null);
 public sealed record ProviderUsage(int? InputTokens, int? OutputTokens, int? TotalTokens);
 public sealed record KnowledgeDiscoveryResponse(KnowledgeDiscoveryResult Result, ProviderUsage? Usage);
 public sealed record KnowledgeDiscoveryResult(

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -28,8 +29,6 @@ namespace OrgWiki.Infrastructure.Tests;
 
 public sealed class AuthenticationTests
 {
-    private const string Secret = "test-jwt-signing-key-must-be-at-least-32-characters";
-
     [Fact]
     public void Password_hasher_does_not_store_or_accept_plaintext()
     {
@@ -72,7 +71,8 @@ public sealed class AuthenticationTests
     [Fact]
     public void Jwt_contains_expected_claims_and_validates()
     {
-        var service = new JwtAccessTokenService(Options.Create(new JwtOptions { Issuer = "OrgWiki", Audience = "OrgWiki", SecretKey = Secret, ExpirationMinutes = 30 }));
+        var signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+        var service = new JwtAccessTokenService(Options.Create(new JwtOptions { Issuer = "OrgWiki", Audience = "OrgWiki", SigningKey = signingKey, ExpirationMinutes = 30 }));
         var user = new AuthenticatedUser(Guid.NewGuid(), "Test User", "test@example.com");
 
         var issued = service.Create(user);
@@ -83,7 +83,7 @@ public sealed class AuthenticationTests
             ValidateAudience = true,
             ValidAudience = "OrgWiki",
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Secret)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         }, out _);

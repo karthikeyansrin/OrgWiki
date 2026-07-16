@@ -1,4 +1,4 @@
-import { Archive, BookOpenText, HeartPulse, Network, ClipboardCheck, Library, UserRound } from 'lucide-react'
+import { Archive, BookOpenText, Network, ClipboardCheck, Library, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 

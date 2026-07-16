@@ -34,12 +34,18 @@ public sealed class KnowledgeGenerationService(OrgWikiDbContext db, ICurrentUser
         {
             var discovery = JsonSerializer.Deserialize<KnowledgeDiscoveryResult>(analysis.ResultJson, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new InvalidDataException("Stored knowledge map is invalid.");
             var uploadDocuments = await db.Documents.Where(x => x.UploadId == analysis.UploadId).ToListAsync(cancellationToken);
-            var request = contextBuilder.Build(analysisId, discovery, uploadDocuments);
+            var request = contextBuilder.Build(analysisId, discovery, uploadDocuments) with { GenerationId = generation.Id };
             if (request.Articles.Count == 0) throw new InvalidOperationException("The knowledge map contains no suggested articles.");
             var provider = providers.Single(x => mode == AiMode.Replay ? x is ReplayKnowledgeGenerationProvider : x is OpenAiKnowledgeGenerationProvider);
             var response = await provider.GenerateAsync(request, cancellationToken); // exactly one provider invocation
             generation.RecordUsage(response.Usage?.InputTokens, response.Usage?.OutputTokens, response.Usage?.TotalTokens);
             validator.Validate(response.Result, request);
+            if (options.Value.VerboseLogging && mode == AiMode.Live)
+            {
+                var articles = response.Result.Articles;
+                var confidences = articles.Select(article => article.Confidence).ToList();
+                logger.LogInformation("Knowledge generation top-level JSON schema validation result: Passed. GenerationId {GenerationId}; article count {ArticleCount}; citation count {CitationCount}; related links {RelatedLinks}; confidence minimum {MinimumConfidence}; confidence maximum {MaximumConfidence}; confidence average {AverageConfidence}", generation.Id, articles.Count, articles.Sum(article => article.Citations.Count), articles.Sum(article => article.RelatedArticleKeys.Count), confidences.Count == 0 ? null : confidences.Min(), confidences.Count == 0 ? null : confidences.Max(), confidences.Count == 0 ? null : confidences.Average());
+            }
             var json = JsonSerializer.Serialize(response.Result);
             watch.Stop();
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -51,12 +57,16 @@ public sealed class KnowledgeGenerationService(OrgWikiDbContext db, ICurrentUser
                 foreach (var citation in draft.Citations) db.GeneratedArticleCitations.Add(new GeneratedArticleCitation(article.Id, citation.SourceDocumentId, citation.EvidenceSnippet));
             }
             await db.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+            logger.LogInformation("Knowledge generation completed for AnalysisId {AnalysisId}, GenerationId {GenerationId}, mode {AiMode}, model {Model}, input tokens {InputTokens}, output tokens {OutputTokens}, total tokens {TotalTokens}, duration {DurationMilliseconds}ms", analysisId, generation.Id, mode, generation.Model, response.Usage?.InputTokens, response.Usage?.OutputTokens, response.Usage?.TotalTokens, watch.ElapsedMilliseconds);
             return ToSummary(generation);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            watch.Stop(); generation.Fail(ex is InvalidDataException ? ex.Message : "OrgWiki couldn't generate articles for this analysis.", watch.ElapsedMilliseconds); await db.SaveChangesAsync(cancellationToken);
-            logger.LogError(ex, "Knowledge generation failed for AnalysisId {AnalysisId}, GenerationId {GenerationId}, mode {AiMode}", analysisId, generation.Id, mode);
+            watch.Stop(); generation.Fail(ex is InvalidDataException or InvalidOperationException ? ex.Message : "OrgWiki couldn't generate articles for this analysis.", watch.ElapsedMilliseconds); await db.SaveChangesAsync(cancellationToken);
+            if (options.Value.VerboseLogging && mode == AiMode.Live && ex is InvalidDataException)
+                logger.LogWarning("Knowledge generation top-level JSON schema validation result: Failed. GenerationId {GenerationId}; error {ErrorMessage}", generation.Id, ex.Message);
+            logger.LogError("Knowledge generation failed for AnalysisId {AnalysisId}, GenerationId {GenerationId}, mode {AiMode}: {ErrorMessage}", analysisId, generation.Id, mode, ex.Message);
+            if (logger.IsEnabled(LogLevel.Debug)) logger.LogDebug(ex, "Knowledge generation failure details for GenerationId {GenerationId}", generation.Id);
             throw;
         }
     }

@@ -34,24 +34,32 @@ public sealed class KnowledgeAnalysisService(OrgWikiDbContext db, ICurrentUser c
         var watch = Stopwatch.StartNew();
         try
         {
-            var request = corpusBuilder.Build(uploadId, upload.Documents);
+            var request = corpusBuilder.Build(uploadId, upload.Documents) with { AnalysisId = analysis.Id };
             if (request.Documents.Count == 0) throw new InvalidOperationException("This upload has no successfully parsed documents.");
             var provider = providers.Single(x => mode == AiMode.Replay ? x is ReplayKnowledgeDiscoveryProvider : x is OpenAiKnowledgeDiscoveryProvider);
             var response = await provider.DiscoverAsync(request, cancellationToken); // exactly one provider invocation
             analysis.RecordUsage(response.Usage?.InputTokens, response.Usage?.OutputTokens, response.Usage?.TotalTokens);
             validator.Validate(response.Result, request.Documents);
+            if (options.Value.VerboseLogging && mode == AiMode.Live)
+            {
+                logger.LogInformation("Knowledge discovery top-level JSON schema validation result: Passed. AnalysisId {AnalysisId}; domains {Domains}; topics {Topics}; relationships {Relationships}; duplicate groups {DuplicateGroups}; conflicts {Conflicts}; outdated candidates {OutdatedCandidates}; suggested articles {SuggestedArticles}", analysis.Id, response.Result.Domains.Count, response.Result.Topics.Count, response.Result.Relationships.Count, response.Result.DuplicateGroups.Count, response.Result.Conflicts.Count, response.Result.OutdatedCandidates.Count, response.Result.SuggestedArticles.Count);
+            }
             var json = JsonSerializer.Serialize(response.Result);
             watch.Stop();
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             analysis.Complete(json, response.Usage?.InputTokens, response.Usage?.OutputTokens, response.Usage?.TotalTokens, watch.ElapsedMilliseconds);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            logger.LogInformation("Knowledge discovery completed for UploadId {UploadId}, AnalysisId {AnalysisId}, mode {AiMode}, model {Model}, input tokens {InputTokens}, output tokens {OutputTokens}, total tokens {TotalTokens}, duration {DurationMilliseconds}ms", uploadId, analysis.Id, mode, analysis.Model, response.Usage?.InputTokens, response.Usage?.OutputTokens, response.Usage?.TotalTokens, watch.ElapsedMilliseconds);
             return ToResult(analysis, request.Documents.Count, request.Documents.Sum(x => x.CharacterCount));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            watch.Stop(); analysis.Fail(ex is InvalidDataException ? ex.Message : "OrgWiki couldn't complete knowledge analysis for this archive.", watch.ElapsedMilliseconds); await db.SaveChangesAsync(cancellationToken);
-            logger.LogError(ex, "Knowledge discovery failed for UploadId {UploadId}, AnalysisId {AnalysisId}, mode {AiMode}", uploadId, analysis.Id, mode);
+            watch.Stop(); analysis.Fail(ex is InvalidDataException or InvalidOperationException ? ex.Message : "OrgWiki couldn't complete knowledge analysis for this archive.", watch.ElapsedMilliseconds); await db.SaveChangesAsync(cancellationToken);
+            if (options.Value.VerboseLogging && mode == AiMode.Live && ex is InvalidDataException)
+                logger.LogWarning("Knowledge discovery top-level JSON schema validation result: Failed. AnalysisId {AnalysisId}; error {ErrorMessage}", analysis.Id, ex.Message);
+            logger.LogError("Knowledge discovery failed for UploadId {UploadId}, AnalysisId {AnalysisId}, mode {AiMode}: {ErrorMessage}", uploadId, analysis.Id, mode, ex.Message);
+            if (logger.IsEnabled(LogLevel.Debug)) logger.LogDebug(ex, "Knowledge discovery failure details for AnalysisId {AnalysisId}", analysis.Id);
             throw;
         }
     }

@@ -21,7 +21,7 @@ public sealed class JwtAccessTokenService(IOptions<JwtOptions> options) : IAcces
             new Claim(JwtRegisteredClaimNames.Name, user.FullName),
             new Claim("userId", user.Id.ToString())
         };
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SigningKey)), SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(settings.Issuer, settings.Audience, claims, notBefore: DateTime.UtcNow, expires: expiresAtUtc, signingCredentials: credentials);
         return new IssuedAccessToken(new JwtSecurityTokenHandler().WriteToken(token), expiresAtUtc);
     }

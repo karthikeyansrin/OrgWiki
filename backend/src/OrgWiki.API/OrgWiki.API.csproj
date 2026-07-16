@@ -16,6 +16,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>orgwiki-api-development</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <None Update="replay-knowledge-discovery.json" CopyToOutputDirectory="PreserveNewest" />
