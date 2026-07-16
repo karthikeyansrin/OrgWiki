@@ -4,10 +4,11 @@ public sealed class Upload
 {
     private Upload() { }
 
-    public Upload(string originalFileName, string storageKey)
+    public Upload(string originalFileName, string storageKey, Guid userId)
     {
         OriginalFileName = originalFileName;
         StorageKey = storageKey;
+        UserId = userId;
         Status = UploadStatus.Pending;
         CreatedAtUtc = DateTime.UtcNow;
     }
@@ -15,6 +16,8 @@ public sealed class Upload
     public Guid Id { get; private set; } = Guid.NewGuid();
     public string OriginalFileName { get; private set; } = string.Empty;
     public string StorageKey { get; private set; } = string.Empty;
+    public Guid? UserId { get; private set; }
+    public string? UploadedBy { get; private set; }
     public UploadStatus Status { get; private set; }
     public int TotalFiles { get; private set; }
     public int SupportedFiles { get; private set; }
@@ -28,6 +31,7 @@ public sealed class Upload
 
     public void MarkProcessing() => Status = UploadStatus.Processing;
     public void SetStorageKey(string storageKey) => StorageKey = storageKey;
+    public void SetUploadedBy(string uploadedBy) => UploadedBy = uploadedBy;
 
     public void Complete(int totalFiles, int supportedFiles, int failedFiles, int totalCharacterCount)
     {

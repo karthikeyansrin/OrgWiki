@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OrgWiki.Application.Analysis;
 
 namespace OrgWiki.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api")]
 public sealed class GenerationsController(IKnowledgeGenerationService generations) : ControllerBase
 {

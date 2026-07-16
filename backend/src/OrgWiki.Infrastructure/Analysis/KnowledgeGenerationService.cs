@@ -6,14 +6,15 @@ using Microsoft.Extensions.Options;
 using OrgWiki.Application.Analysis;
 using OrgWiki.Domain.Analysis;
 using OrgWiki.Infrastructure.Persistence;
+using OrgWiki.Application.Authentication;
 
 namespace OrgWiki.Infrastructure.Analysis;
 
-public sealed class KnowledgeGenerationService(OrgWikiDbContext db, KnowledgeGenerationContextBuilder contextBuilder, IEnumerable<IKnowledgeGenerationProvider> providers, IKnowledgeGenerationValidator validator, IOptions<KnowledgeAnalysisOptions> options, ILogger<KnowledgeGenerationService> logger) : IKnowledgeGenerationService
+public sealed class KnowledgeGenerationService(OrgWikiDbContext db, ICurrentUser currentUser, KnowledgeGenerationContextBuilder contextBuilder, IEnumerable<IKnowledgeGenerationProvider> providers, IKnowledgeGenerationValidator validator, IOptions<KnowledgeAnalysisOptions> options, ILogger<KnowledgeGenerationService> logger) : IKnowledgeGenerationService
 {
     public async Task<KnowledgeGenerationSummary?> StartAsync(Guid analysisId, bool explicitRetry, CancellationToken cancellationToken)
     {
-        var analysis = await db.KnowledgeAnalyses.SingleOrDefaultAsync(x => x.Id == analysisId, cancellationToken);
+        var analysis = await OwnedAnalyses().SingleOrDefaultAsync(x => x.Id == analysisId, cancellationToken);
         if (analysis is null) return null;
         if (analysis.Status != KnowledgeAnalysisStatus.Completed || string.IsNullOrWhiteSpace(analysis.ResultJson)) throw new InvalidOperationException("Knowledge discovery must complete before articles can be generated.");
         var latest = await db.KnowledgeGenerations.Where(x => x.AnalysisId == analysisId).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
@@ -61,7 +62,12 @@ public sealed class KnowledgeGenerationService(OrgWikiDbContext db, KnowledgeGen
     }
 
     public async Task<KnowledgeGenerationSummary?> GetAsync(Guid generationId, CancellationToken cancellationToken)
-        => await db.KnowledgeGenerations.SingleOrDefaultAsync(x => x.Id == generationId, cancellationToken) is { } generation ? ToSummary(generation) : null;
+        => await db.KnowledgeGenerations.Where(x => x.Id == generationId)
+            .Join(OwnedAnalyses(), generation => generation.AnalysisId, analysis => analysis.Id, (generation, _) => generation)
+            .SingleOrDefaultAsync(cancellationToken) is { } generation ? ToSummary(generation) : null;
+
+    private IQueryable<KnowledgeAnalysis> OwnedAnalyses()
+        => db.KnowledgeAnalyses.Where(analysis => db.Uploads.Any(upload => upload.Id == analysis.UploadId && upload.UserId == currentUser.Id));
 
     static KnowledgeGenerationSummary ToSummary(KnowledgeGeneration generation)
     { KnowledgeGenerationResult? result = string.IsNullOrWhiteSpace(generation.ResultJson) ? null : JsonSerializer.Deserialize<KnowledgeGenerationResult>(generation.ResultJson); return new(generation.Id, generation.AnalysisId, generation.Status.ToString(), generation.AiMode.ToString(), generation.Model, generation.InputTokens ?? 0, generation.OutputTokens ?? 0, generation.TotalTokens ?? 0, generation.DurationMilliseconds, generation.ErrorMessage, result); }

@@ -4,3 +4,4 @@
 **/obj/
 .env
 frontend/.env.local
+*DemoDocs.zip

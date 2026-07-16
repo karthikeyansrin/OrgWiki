@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OrgWiki.Application.Review;
 
 namespace OrgWiki.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/review")]
 public sealed class ReviewController(IReviewService review) : ControllerBase
 {

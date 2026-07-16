@@ -7,14 +7,15 @@ using OrgWiki.Application.Analysis;
 using OrgWiki.Domain.Analysis;
 using OrgWiki.Domain.Ingestion;
 using OrgWiki.Infrastructure.Persistence;
+using OrgWiki.Application.Authentication;
 
 namespace OrgWiki.Infrastructure.Analysis;
 
-public sealed class KnowledgeAnalysisService(OrgWikiDbContext db, DeterministicCorpusBuilder corpusBuilder, IEnumerable<IKnowledgeDiscoveryProvider> providers, IKnowledgeDiscoveryValidator validator, IOptions<KnowledgeAnalysisOptions> options, ILogger<KnowledgeAnalysisService> logger) : IKnowledgeAnalysisService
+public sealed class KnowledgeAnalysisService(OrgWikiDbContext db, ICurrentUser currentUser, DeterministicCorpusBuilder corpusBuilder, IEnumerable<IKnowledgeDiscoveryProvider> providers, IKnowledgeDiscoveryValidator validator, IOptions<KnowledgeAnalysisOptions> options, ILogger<KnowledgeAnalysisService> logger) : IKnowledgeAnalysisService
 {
     public async Task<KnowledgeAnalysisResult?> StartAsync(Guid uploadId, bool explicitRetry, CancellationToken cancellationToken)
     {
-        var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId, cancellationToken);
+        var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId && x.UserId == currentUser.Id, cancellationToken);
         if (upload is null) return null;
         if (!upload.IsEligibleForAnalysis) throw new InvalidOperationException(upload.AnalysisEligibilityReason ?? "This upload is not eligible for analysis.");
         var latest = await db.KnowledgeAnalyses.Where(x => x.UploadId == uploadId).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
@@ -57,8 +58,10 @@ public sealed class KnowledgeAnalysisService(OrgWikiDbContext db, DeterministicC
 
     public async Task<KnowledgeAnalysisResult?> GetAsync(Guid analysisId, CancellationToken cancellationToken)
     {
-        var analysis = await db.KnowledgeAnalyses.SingleOrDefaultAsync(x => x.Id == analysisId, cancellationToken); if (analysis is null) return null;
-        var upload = await db.Uploads.Include(x => x.Documents).SingleAsync(x => x.Id == analysis.UploadId, cancellationToken); return ToResult(analysis, upload.Documents.Count(x => x.ProcessingStatus == DocumentProcessingStatus.Parsed), upload.TotalCharacterCount);
+        var owned = await db.KnowledgeAnalyses.Where(x => x.Id == analysisId)
+            .Join(db.Uploads, analysis => analysis.UploadId, upload => upload.Id, (analysis, upload) => new { analysis, upload })
+            .SingleOrDefaultAsync(x => x.upload.UserId == currentUser.Id, cancellationToken);
+        return owned is null ? null : ToResult(owned.analysis, await db.Documents.CountAsync(x => x.UploadId == owned.upload.Id && x.ProcessingStatus == DocumentProcessingStatus.Parsed, cancellationToken), owned.upload.TotalCharacterCount);
     }
 
     static KnowledgeAnalysisResult ToResult(KnowledgeAnalysis analysis, int documents, int characters)

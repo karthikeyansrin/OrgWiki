@@ -1,20 +1,23 @@
-import { Archive, BookOpenText, HeartPulse, Network, ClipboardCheck, Library } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Archive, BookOpenText, HeartPulse, Network, ClipboardCheck, Library, UserRound } from 'lucide-react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 
 const navigation = [
-  { to: '/', label: 'Overview', icon: Network },
-  { to: '/system', label: 'System', icon: HeartPulse },
+  { to: '/dashboard', label: 'Overview', icon: Network },
+  // { to: '/system', label: 'System', icon: HeartPulse },
   { to: '/import', label: 'Import', icon: Archive },
   { to: '/review', label: 'Review', icon: ClipboardCheck },
   { to: '/knowledge', label: 'Knowledge Base', icon: Library },
 ]
 
 export function AppLayout() {
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
   return (
     <div className="min-h-screen bg-stone-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <NavLink to="/" className="flex items-center gap-2.5 font-semibold tracking-normal">
+          <NavLink to="/dashboard" className="flex items-center gap-2.5 font-semibold tracking-normal">
             <span className="grid size-8 place-items-center rounded-md bg-teal-700 text-white">
               <BookOpenText size={18} aria-hidden="true" />
             </span>
@@ -38,6 +41,10 @@ export function AppLayout() {
               </NavLink>
             ))}
           </nav>
+          <div className="ml-3 flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><UserRound size={16} aria-hidden="true" />{user?.fullName}</span>
+            <button type="button" onClick={() => { logout(); navigate('/') }} className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-950">Logout</button>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">

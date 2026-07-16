@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OrgWiki.Application.Ingestion;
 using OrgWiki.Domain.Ingestion;
 using OrgWiki.Infrastructure.Persistence;
+using OrgWiki.Application.Authentication;
 
 namespace OrgWiki.Infrastructure.Ingestion;
 
@@ -14,11 +15,13 @@ public sealed class IngestionService(
     IEnumerable<IDocumentParser> parsers,
     IContentNormalizer normalizer,
     IOptions<IngestionOptions> options,
+    ICurrentUser currentUser,
     ILogger<IngestionService> logger) : IIngestionService
 {
     public async Task<IngestionResult> IngestAsync(string fileName, Stream archive, CancellationToken cancellationToken)
     {
-        var upload = new Upload(fileName, string.Empty);
+        var upload = new Upload(fileName, string.Empty, currentUser.Id);
+        upload.SetUploadedBy(currentUser.FullName);
         db.Uploads.Add(upload);
         await db.SaveChangesAsync(cancellationToken);
         try
@@ -82,7 +85,7 @@ public sealed class IngestionService(
 
     public async Task<IngestionResult?> GetAsync(Guid uploadId, CancellationToken cancellationToken)
     {
-        var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId, cancellationToken);
+        var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId && x.UserId == currentUser.Id, cancellationToken);
         if (upload is null) return null;
         return new IngestionResult(upload.Id, upload.OriginalFileName, upload.Status.ToString(), upload.TotalFiles,
             upload.SupportedFiles, upload.Documents.Count(x => x.ProcessingStatus == DocumentProcessingStatus.Parsed),

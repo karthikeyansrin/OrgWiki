@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OrgWiki.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using OrgWiki.Infrastructure.Persistence;
 namespace OrgWiki.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OrgWikiDbContext))]
-    partial class OrgWikiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260716132224_AddAuthenticationFoundation")]
+    partial class AddAuthenticationFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -101,6 +104,10 @@ namespace OrgWiki.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'Published'");
 
                     b.HasIndex("GenerationId", "Key")
                         .IsUnique();
@@ -400,16 +407,11 @@ namespace OrgWiki.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAtUtc");
 
                     b.HasIndex("Status");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("uploads", (string)null);
                 });
@@ -467,14 +469,6 @@ namespace OrgWiki.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Upload");
-                });
-
-            modelBuilder.Entity("OrgWiki.Domain.Ingestion.Upload", b =>
-                {
-                    b.HasOne("OrgWiki.Domain.Authentication.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("OrgWiki.Domain.Analysis.GeneratedArticle", b =>

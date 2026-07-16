@@ -12,6 +12,10 @@ using OrgWiki.Application.Review;
 using OrgWiki.Infrastructure.Review;
 using OrgWiki.Application.KnowledgeBase;
 using OrgWiki.Infrastructure.KnowledgeBase;
+using OrgWiki.Application.Authentication;
+using OrgWiki.Infrastructure.Authentication;
+using Microsoft.AspNetCore.Identity;
+using OrgWiki.Domain.Authentication;
 
 namespace OrgWiki.Infrastructure;
 
@@ -66,6 +70,8 @@ public static class DependencyInjection
         services.AddScoped<IDocumentParser, MarkdownDocumentParser>();
         services.AddScoped<IDocumentParser, TextDocumentParser>();
         services.AddScoped<IIngestionService, IngestionService>();
+        services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+        services.AddScoped<IAuthenticationService, AuthenticationService>();
 
         return services;
     }

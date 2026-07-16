@@ -66,7 +66,7 @@ export function ReviewArticlePage() {
   const error = save.error?.message ?? approve.error?.message ?? reject.error?.message ?? publish.error?.message
 
   return <section>
-    <Link to="/review" className="text-sm font-semibold text-teal-700">Back to review queue</Link>
+    <Link to="/review" className="text-sm font-semibold text-teal-700">← Review</Link>
     <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
       <div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Article review</p><h1 className="mt-2 text-3xl font-semibold">{article.title}</h1></div>
       <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800">{article.status}</span>

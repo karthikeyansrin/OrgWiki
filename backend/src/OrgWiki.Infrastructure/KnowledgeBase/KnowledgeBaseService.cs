@@ -4,10 +4,11 @@ using OrgWiki.Application.Analysis;
 using OrgWiki.Application.KnowledgeBase;
 using OrgWiki.Domain.Analysis;
 using OrgWiki.Infrastructure.Persistence;
+using OrgWiki.Application.Authentication;
 
 namespace OrgWiki.Infrastructure.KnowledgeBase;
 
-public sealed class KnowledgeBaseService(OrgWikiDbContext db) : IKnowledgeBaseService
+public sealed class KnowledgeBaseService(OrgWikiDbContext db, ICurrentUser currentUser) : IKnowledgeBaseService
 {
     public async Task<KnowledgeBaseHome> GetHomeAsync(CancellationToken cancellationToken)
     {
@@ -27,7 +28,7 @@ public sealed class KnowledgeBaseService(OrgWikiDbContext db) : IKnowledgeBaseSe
     public async Task<PublishedArticle?> GetArticleAsync(string key, CancellationToken cancellationToken)
     {
         var normalized = key.Trim(); if (string.IsNullOrWhiteSpace(normalized)) return null;
-        var article = await db.GeneratedArticles.Include(x => x.Citations).SingleOrDefaultAsync(x => x.Key == normalized && x.Status == GeneratedArticleStatus.Published, cancellationToken);
+        var article = await OwnedPublishedArticles().Include(x => x.Citations).SingleOrDefaultAsync(x => x.Key == normalized, cancellationToken);
         if (article is null) return null;
         var generation = await db.KnowledgeGenerations.SingleAsync(x => x.Id == article.GenerationId, cancellationToken);
         var analysis = await db.KnowledgeAnalyses.SingleAsync(x => x.Id == generation.AnalysisId, cancellationToken);
@@ -41,7 +42,9 @@ public sealed class KnowledgeBaseService(OrgWikiDbContext db) : IKnowledgeBaseSe
         return new PublishedArticle(article.Key, article.Title, article.Summary, article.MarkdownContent, DomainFor(article, discovery), article.Difficulty, article.EstimatedReadingMinutes, Strings(article.TagsJson), article.PublishedAtUtc ?? article.GeneratedAtUtc, related, citations);
     }
 
-    async Task<List<GeneratedArticle>> PublishedArticles(CancellationToken cancellationToken) => await db.GeneratedArticles.Where(x => x.Status == GeneratedArticleStatus.Published).OrderBy(x => x.Title).ToListAsync(cancellationToken);
+    async Task<List<GeneratedArticle>> PublishedArticles(CancellationToken cancellationToken) => await OwnedPublishedArticles().OrderBy(x => x.Title).ToListAsync(cancellationToken);
+    private IQueryable<GeneratedArticle> OwnedPublishedArticles()
+        => db.GeneratedArticles.Where(article => article.Status == GeneratedArticleStatus.Published && db.KnowledgeGenerations.Any(generation => generation.Id == article.GenerationId && db.KnowledgeAnalyses.Any(analysis => analysis.Id == generation.AnalysisId && db.Uploads.Any(upload => upload.Id == analysis.UploadId && upload.UserId == currentUser.Id))));
     async Task<List<PublishedArticleSummary>> Summaries(IReadOnlyList<GeneratedArticle> articles, CancellationToken cancellationToken)
     {
         var generations = await db.KnowledgeGenerations.Where(x => articles.Select(a => a.GenerationId).Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);

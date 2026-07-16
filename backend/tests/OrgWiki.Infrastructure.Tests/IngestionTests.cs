@@ -89,7 +89,7 @@ public sealed class IngestionTests
     [Fact]
     public void Upload_can_be_completed_but_ineligible_without_mutating_document_content()
     {
-        var upload = new Upload("knowledge.zip", "archive");
+        var upload = new Upload("knowledge.zip", "archive", Guid.NewGuid());
         upload.Complete(2, 2, 0, 301);
         upload.SetAnalysisEligibility(false, "The extracted knowledge corpus exceeds the 300,000 character MVP analysis limit.");
         Assert.Equal(301, upload.TotalCharacterCount);

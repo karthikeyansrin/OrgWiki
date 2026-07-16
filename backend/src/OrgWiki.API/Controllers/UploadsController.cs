@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using OrgWiki.Application.Ingestion;
 
 namespace OrgWiki.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/uploads")]
 public sealed class UploadsController(IIngestionService ingestion, IOptions<IngestionOptions> options) : ControllerBase
 {

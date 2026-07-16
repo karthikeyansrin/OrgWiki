@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OrgWiki.Domain.Ingestion;
 using OrgWiki.Domain.Analysis;
+using OrgWiki.Domain.Authentication;
 
 namespace OrgWiki.Infrastructure.Persistence;
 
@@ -12,20 +13,34 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
     public DbSet<KnowledgeGeneration> KnowledgeGenerations => Set<KnowledgeGeneration>();
     public DbSet<GeneratedArticle> GeneratedArticles => Set<GeneratedArticle>();
     public DbSet<GeneratedArticleCitation> GeneratedArticleCitations => Set<GeneratedArticleCitation>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FullName).HasMaxLength(256).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(320).IsRequired();
+            entity.Property(x => x.PasswordHash).IsRequired();
+            entity.HasIndex(x => x.Email).IsUnique();
+        });
+
         modelBuilder.Entity<Upload>(entity =>
         {
             entity.ToTable("uploads");
             entity.HasKey(x => x.Id);
             entity.Property(x => x.OriginalFileName).HasMaxLength(255).IsRequired();
             entity.Property(x => x.StorageKey).HasMaxLength(512).IsRequired();
+            entity.Property(x => x.UploadedBy).HasMaxLength(128);
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            entity.HasIndex(x => x.UserId);
             entity.HasIndex(x => x.CreatedAtUtc);
             entity.HasIndex(x => x.Status);
             entity.HasMany(x => x.Documents).WithOne(x => x.Upload)
                 .HasForeignKey(x => x.UploadId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Document>(entity =>
@@ -67,7 +82,7 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
             entity.Property(x => x.Difficulty).HasMaxLength(32).IsRequired(); entity.Property(x => x.TagsJson).IsRequired(); entity.Property(x => x.RelatedArticleKeysJson).IsRequired();
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); entity.HasIndex(x => new { x.GenerationId, x.Key }).IsUnique();
             entity.Property(x => x.ReviewedBy).HasMaxLength(128); entity.Property(x => x.LastEditedBy).HasMaxLength(128);
-            entity.Property(x => x.PublishedBy).HasMaxLength(128); entity.HasIndex(x => x.Key).HasFilter("\"Status\" = 'Published'").IsUnique();
+            entity.Property(x => x.PublishedBy).HasMaxLength(128);
             entity.HasOne<KnowledgeGeneration>().WithMany().HasForeignKey(x => x.GenerationId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<GeneratedArticleCitation>(entity =>

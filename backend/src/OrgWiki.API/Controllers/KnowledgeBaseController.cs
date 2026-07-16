@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OrgWiki.Application.KnowledgeBase;
 
 namespace OrgWiki.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/knowledge")]
 public sealed class KnowledgeBaseController(IKnowledgeBaseService knowledgeBase) : ControllerBase
 {
