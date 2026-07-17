@@ -31,8 +31,8 @@ public static class KnowledgeDiscoverySchema
         return Object(["domains", "topics", "relationships", "duplicateGroups", "conflicts", "outdatedCandidates", "suggestedArticles"], new JsonObject { ["domains"] = Array(domain), ["topics"] = Array(topic), ["relationships"] = Array(relationship), ["duplicateGroups"] = Array(duplicate), ["conflicts"] = Array(conflict), ["outdatedCandidates"] = Array(outdated), ["suggestedArticles"] = Array(article) });
     }
     static JsonObject String() => new() { ["type"] = "string", ["minLength"] = 1 };
-    static JsonObject StringArray(int minItems = 0) => new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1 }, ["uniqueItems"] = true, ["minItems"] = minItems };
-    static JsonObject GuidArray(int minItems = 0) => new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" }, ["uniqueItems"] = true, ["minItems"] = minItems };
-    static JsonObject Array(JsonObject item) => new() { ["type"] = "array", ["items"] = item, ["uniqueItems"] = true };
+    static JsonObject StringArray(int minItems = 0) => new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1 }, ["minItems"] = minItems };
+    static JsonObject GuidArray(int minItems = 0) => new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" }, ["minItems"] = minItems };
+    static JsonObject Array(JsonObject item) => new() { ["type"] = "array", ["items"] = item };
     static JsonObject Object(string[] required, JsonObject properties) => new() { ["type"] = "object", ["properties"] = properties, ["required"] = new JsonArray(required.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray()), ["additionalProperties"] = false };
 }

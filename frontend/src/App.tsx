@@ -1,8 +1,8 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
-import { OverviewPage } from './pages/OverviewPage'
 import { ImportPage } from './pages/ImportPage'
 import { UploadDetailsPage } from './pages/UploadDetailsPage'
+import { UploadsPage } from './pages/UploadsPage'
 import { AnalysisPage } from './pages/AnalysisPage'
 import { GeneratedArticlesPage } from './pages/GeneratedArticlesPage'
 import { ReviewDashboardPage } from './pages/ReviewDashboardPage'
@@ -20,9 +20,10 @@ function App() {
       <Route path="/auth" element={<AuthPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="dashboard" element={<OverviewPage />} />
+          <Route path="dashboard" element={<Navigate to="/import" replace />} />
           {/* <Route path="system" element={<SystemPage />} /> */}
           <Route path="import" element={<ImportPage />} />
+          <Route path="uploads" element={<UploadsPage />} />
           <Route path="uploads/:uploadId" element={<UploadDetailsPage />} />
           <Route path="analyses/:analysisId" element={<AnalysisPage />} />
           <Route path="generations/:generationId" element={<GeneratedArticlesPage />} />

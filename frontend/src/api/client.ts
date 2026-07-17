@@ -40,8 +40,11 @@ export type IngestionResult = {
   totalCharacterCount: number
   isEligibleForAnalysis: boolean
   analysisEligibilityReason: string | null
+  analysisStatus: string | null
+  generationStatus: string | null
   documents: IngestionDocument[]
 }
+export type UploadHistoryItem = { uploadId: string; fileName: string; createdAtUtc: string; status: string; documentCount: number; analysisStatus: string | null; generationStatus: string | null }
 export type DiscoveryResult = { domains: { key: string; name: string; description: string; confidence: number }[]; topics: { key: string; name: string; description: string; domainKey: string; confidence: number; sourceDocumentIds: string[] }[]; relationships: { sourceTopicKey: string; targetTopicKey: string; type: string; explanation: string; confidence: number }[]; duplicateGroups: { title: string; explanation: string; confidence: number; topicKeys: string[]; sourceDocumentIds: string[] }[]; conflicts: { title: string; description: string; topicKeys: string[]; claimA: string; claimB: string; evidenceSnippetA: string; evidenceSnippetB: string; recommendation: string; recommendationReasoning: string; confidence: number }[]; outdatedCandidates: { description: string; reason: string; topicKeys: string[]; confidence: number }[]; suggestedArticles: { key: string; title: string; summary: string; domainKey: string; topicKeys: string[]; sourceDocumentIds: string[]; reason: string; confidence: number }[] }
 export type AnalysisResult = { analysisId: string; uploadId: string; status: string; aiMode: string; model: string; documentsAnalyzed: number; corpusCharacterCount: number; inputTokens: number | null; outputTokens: number | null; totalTokens: number | null; durationMilliseconds: number | null; errorMessage: string | null; discovery: DiscoveryResult | null }
 export type GeneratedArticle = { key: string; title: string; summary: string; markdownContent: string; difficulty: string; estimatedReadingMinutes: number; tags: string[]; relatedArticleKeys: string[]; confidence: number; citations: { sourceDocumentId: string; evidenceSnippet: string }[] }
@@ -85,6 +88,7 @@ export async function getUpload(uploadId: string): Promise<IngestionResult> {
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<IngestionResult>
 }
+export async function getUploads(): Promise<UploadHistoryItem[]> { const response = await apiFetch('/api/uploads'); if (!response.ok) throw new Error(await readError(response)); return response.json() as Promise<UploadHistoryItem[]> }
 
 export async function startAnalysis(uploadId: string, retry = false): Promise<AnalysisResult> {
   const response = await apiFetch(`/api/uploads/${uploadId}/analysis?retry=${retry}`, { method: 'POST' })

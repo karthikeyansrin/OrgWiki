@@ -87,11 +87,45 @@ public sealed class IngestionService(
     {
         var upload = await db.Uploads.Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == uploadId && x.UserId == currentUser.Id, cancellationToken);
         if (upload is null) return null;
+        var analysis = await db.KnowledgeAnalyses.AsNoTracking()
+            .Where(x => x.UploadId == upload.Id)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        var generation = analysis is null
+            ? null
+            : await db.KnowledgeGenerations.AsNoTracking()
+                .Where(x => x.AnalysisId == analysis.Id)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken);
         return new IngestionResult(upload.Id, upload.OriginalFileName, upload.Status.ToString(), upload.TotalFiles,
             upload.SupportedFiles, upload.Documents.Count(x => x.ProcessingStatus == DocumentProcessingStatus.Parsed),
             upload.FailedFiles, upload.TotalCharacterCount, upload.IsEligibleForAnalysis, upload.AnalysisEligibilityReason,
+            analysis?.Status.ToString(), generation?.Status.ToString(),
             upload.Documents.Select(x => new IngestionDocumentResult(x.Id, x.FileName, x.OriginalPath,
                 x.DocumentType.ToString(), x.ProcessingStatus.ToString(), x.CharacterCount, x.WordCount, x.ProcessingError)).ToList());
+    }
+
+    public async Task<IReadOnlyList<UploadHistoryItem>> ListAsync(CancellationToken cancellationToken)
+    {
+        var uploads = await db.Uploads.AsNoTracking().Where(upload => upload.UserId == currentUser.Id)
+            .OrderByDescending(upload => upload.CreatedAtUtc).ToListAsync(cancellationToken);
+        if (uploads.Count == 0) return [];
+
+        var uploadIds = uploads.Select(upload => upload.Id).ToList();
+        var analyses = await db.KnowledgeAnalyses.AsNoTracking().Where(analysis => uploadIds.Contains(analysis.UploadId))
+            .OrderByDescending(analysis => analysis.CreatedAtUtc).ToListAsync(cancellationToken);
+        var analysisByUpload = analyses.GroupBy(analysis => analysis.UploadId).ToDictionary(group => group.Key, group => group.First());
+        var analysisIds = analysisByUpload.Values.Select(analysis => analysis.Id).ToList();
+        var generations = analysisIds.Count == 0 ? [] : await db.KnowledgeGenerations.AsNoTracking()
+            .Where(generation => analysisIds.Contains(generation.AnalysisId)).OrderByDescending(generation => generation.CreatedAtUtc).ToListAsync(cancellationToken);
+        var generationByAnalysis = generations.GroupBy(generation => generation.AnalysisId).ToDictionary(group => group.Key, group => group.First());
+
+        return uploads.Select(upload =>
+        {
+            analysisByUpload.TryGetValue(upload.Id, out var analysis);
+            var generation = analysis is not null && generationByAnalysis.TryGetValue(analysis.Id, out var value) ? value : null;
+            return new UploadHistoryItem(upload.Id, upload.OriginalFileName, upload.CreatedAtUtc, upload.Status.ToString(), upload.SupportedFiles, analysis?.Status.ToString(), generation?.Status.ToString());
+        }).ToList();
     }
 
     private static DocumentType GetDocumentType(string fileName)

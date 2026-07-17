@@ -30,4 +30,8 @@ public sealed class UploadsController(IIngestionService ingestion, IOptions<Inge
     [HttpGet("{uploadId:guid}")]
     public async Task<ActionResult<IngestionResult>> Get(Guid uploadId, CancellationToken cancellationToken)
         => await ingestion.GetAsync(uploadId, cancellationToken) is { } result ? Ok(result) : NotFound();
+
+    [HttpGet]
+    public Task<IReadOnlyList<UploadHistoryItem>> List(CancellationToken cancellationToken)
+        => ingestion.ListAsync(cancellationToken);
 }

@@ -1,11 +1,10 @@
-import { Archive, BookOpenText, Network, ClipboardCheck, Library, UserRound } from 'lucide-react'
+import { Archive, BookOpenText, ClipboardCheck, Library, List, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 const navigation = [
-  { to: '/dashboard', label: 'Overview', icon: Network },
-  // { to: '/system', label: 'System', icon: HeartPulse },
   { to: '/import', label: 'Import', icon: Archive },
+  { to: '/uploads', label: 'Uploads', icon: List },
   { to: '/review', label: 'Review', icon: ClipboardCheck },
   { to: '/knowledge', label: 'Knowledge Base', icon: Library },
 ]
@@ -17,7 +16,7 @@ export function AppLayout() {
     <div className="min-h-screen bg-stone-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <NavLink to="/dashboard" className="flex items-center gap-2.5 font-semibold tracking-normal">
+          <NavLink to="/import" className="flex items-center gap-2.5 font-semibold tracking-normal">
             <span className="grid size-8 place-items-center rounded-md bg-teal-700 text-white">
               <BookOpenText size={18} aria-hidden="true" />
             </span>

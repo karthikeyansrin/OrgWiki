@@ -10,6 +10,13 @@ namespace OrgWiki.Infrastructure.Tests;
 
 public sealed class OpenAiVerboseLoggingTests
 {
+    [Fact]
+    public void Strict_structured_output_schemas_omit_unsupported_uniqueItems()
+    {
+        Assert.DoesNotContain("uniqueItems", KnowledgeDiscoverySchema.CreateResponseFormat().ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("uniqueItems", KnowledgeGenerationSchema.CreateResponseFormat().ToJsonString(), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
