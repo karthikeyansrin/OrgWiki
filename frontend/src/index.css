@@ -23,3 +23,27 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+button:not(:disabled),
+a[href] {
+  cursor: pointer;
+}
+
+@keyframes pulse-soft {
+  50% { opacity: .52; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 45%, #e2e8f0 70%);
+  background-size: 200% 100%;
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in .28s ease-out both;
+}

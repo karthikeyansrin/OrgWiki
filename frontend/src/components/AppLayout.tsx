@@ -1,5 +1,6 @@
 import { Archive, BookOpenText, ClipboardCheck, Library, List, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { flushSync } from 'react-dom'
 import { useAuth } from '../auth/AuthContext'
 
 const navigation = [
@@ -42,7 +43,7 @@ export function AppLayout() {
           </nav>
           <div className="ml-3 flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><UserRound size={16} aria-hidden="true" />{user?.fullName}</span>
-            <button type="button" onClick={() => { logout(); navigate('/') }} className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-950">Logout</button>
+            <button type="button" onClick={() => { flushSync(logout); navigate('/', { replace: true }) }} className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-950">Logout</button>
           </div>
         </div>
       </header>

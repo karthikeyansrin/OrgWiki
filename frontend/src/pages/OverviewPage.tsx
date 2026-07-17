@@ -1,86 +1,33 @@
-import { ArrowRight, Files, GitMerge, ScanText, ShieldCheck } from 'lucide-react'
-import { BackendStatus } from '../components/BackendStatus'
+import { ArrowRight, CheckCircle2, FileSearch, Files, GitFork, Library, ScanSearch, ShieldCheck, Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-const stages = [
-  {
-    title: 'Source material',
-    detail: 'Bring fragmented organizational files into one transformation workflow.',
-    icon: Files,
-  },
-  {
-    title: 'Structured knowledge',
-    detail: 'Extract durable concepts, relationships, and evidence from the material.',
-    icon: ScanText,
-  },
-  {
-    title: 'Knowledge refinement',
-    detail: 'Surface duplicates and conflicts before information becomes organizational truth.',
-    icon: GitMerge,
-  },
-  {
-    title: 'Reviewed knowledge base',
-    detail: 'Publish knowledge people can find, trust, and continue to improve.',
-    icon: ShieldCheck,
-  },
+const workflow = [
+  { title: 'Source Material', detail: 'Bring PDFs, DOCX files, Markdown, and text documents into one place.', icon: Files },
+  { title: 'AI Knowledge Discovery', detail: 'Map domains, topics, relationships, duplicate knowledge, and conflicts.', icon: ScanSearch },
+  { title: 'Knowledge Article Generation', detail: 'Create grounded Markdown articles from the validated knowledge map.', icon: Sparkles },
+  { title: 'Human Review', detail: 'Review drafts alongside exact source evidence before anything is trusted.', icon: ShieldCheck },
+  { title: 'Trusted Knowledge Base', detail: 'Publish reviewed organizational knowledge that teams can browse and verify.', icon: Library },
+]
+
+const values = [
+  { title: 'AI understands organizational knowledge', icon: ScanSearch, points: ['Discover domains and topics', 'Find duplicate documentation', 'Surface materially conflicting claims', 'Map relationships across documents'] },
+  { title: 'Evidence-backed AI', icon: FileSearch, points: ['Every article remains linked to source material', 'Evidence snippets are preserved verbatim', 'Conflicts remain visible for review', 'Claims can be traced back to documents'] },
+  { title: 'Humans stay in control', icon: ShieldCheck, points: ['Generated articles begin as drafts', 'Reviewers edit and approve content', 'Publishing is always explicit', 'Only reviewed knowledge reaches the Knowledge Base'] },
 ]
 
 export function OverviewPage() {
-  return (
-    <div className="space-y-14">
-      <section className="grid gap-8 border-b border-slate-200 pb-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-        <div>
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-teal-700">
-            Organizational knowledge operations
-          </p>
-          <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-normal text-slate-950 sm:text-5xl">
-            Transform scattered documents into knowledge your organization can maintain.
-          </h1>
-        </div>
-        <div className="border-l-2 border-amber-400 pl-5 text-base leading-7 text-slate-600">
-          OrgWiki turns source material into reviewed, structured knowledge with traceable evidence.
-        </div>
-      </section>
+  return <div className="space-y-20 pb-10">
+    <section className="grid gap-10 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+      <div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Organizational knowledge, made trustworthy</p><h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-6xl">Turn organizational knowledge into a trusted internal wiki.</h1><p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">Upload your organization&apos;s documents and let OrgWiki discover knowledge domains, detect duplicate documentation, identify conflicts, and generate citation-backed knowledge articles for human review.</p><div className="mt-8 flex flex-wrap gap-3"><Link to="/auth?mode=register" className="rounded-lg bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">Register</Link><Link to="/auth?mode=login" className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">Login</Link></div><p className="mt-5 flex items-center gap-2 text-sm text-slate-500"><ShieldCheck size={16} className="text-teal-700" />AI assists the process. Humans approve what gets published.</p></div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center gap-2"><GitFork size={19} className="text-teal-700" /><p className="font-semibold">From fragmented files to trusted knowledge</p></div><div className="mt-6 space-y-4">{workflow.map(({ title, icon: Icon }, index) => <div key={title} className="flex gap-4"><div className="flex flex-col items-center"><span className="grid size-9 place-items-center rounded-lg bg-teal-50 text-teal-700"><Icon size={18} /></span>{index < workflow.length - 1 && <span className="mt-2 h-5 border-l border-dashed border-teal-200" />}</div><div className="pb-2"><p className="font-semibold text-slate-900">{title}</p><p className="mt-1 text-sm leading-6 text-slate-600">{workflow[index].detail}</p></div></div>)}</div></div>
+    </section>
 
-      <section aria-labelledby="workflow-heading">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-teal-700">Knowledge transformation</p>
-            <h2 id="workflow-heading" className="mt-1 text-2xl font-semibold tracking-normal">
-              From messy documents to structured knowledge
-            </h2>
-          </div>
-          <BackendStatus />
-        </div>
-        <div className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
-          {stages.map(({ title, detail, icon: Icon }, index) => (
-            <article key={title} className="min-h-56 bg-white p-6">
-              <div className="mb-8 flex items-center justify-between">
-                <span className="grid size-10 place-items-center rounded-md bg-teal-50 text-teal-800">
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-                {index < stages.length - 1 && <ArrowRight className="hidden text-slate-300 xl:block" size={18} />}
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+    <section><div className="max-w-2xl"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">How it works</p><h2 className="mt-3 text-3xl font-semibold tracking-tight">A deliberate path from documents to organizational knowledge.</h2></div><div className="mt-8 grid gap-3 md:grid-cols-5">{workflow.map(({ title, detail, icon: Icon }, index) => <article key={title} className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"><span className="grid size-10 place-items-center rounded-lg bg-teal-50 text-teal-700"><Icon size={20} /></span><p className="mt-5 text-sm font-semibold text-slate-900">{title}</p><p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>{index < workflow.length - 1 && <ArrowRight size={17} className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-stone-50 text-slate-300 xl:block" />}</article>)}</div></section>
 
-      <section className="grid gap-6 border-t border-slate-200 pt-8 md:grid-cols-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">System state</p>
-          <p className="mt-2 text-lg font-semibold">Foundation ready</p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-slate-500">Next capability</p>
-          <p className="mt-2 text-lg font-semibold">Document intake</p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-slate-500">Knowledge model</p>
-          <p className="mt-2 text-lg font-semibold">Pending source analysis</p>
-        </div>
-      </section>
-    </div>
-  )
+    <section className="border-y border-slate-200 py-16"><div className="max-w-2xl"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Why OrgWiki</p><h2 className="mt-3 text-3xl font-semibold tracking-tight">Knowledge needs more than a chat window.</h2><p className="mt-4 leading-7 text-slate-600">OrgWiki transforms the corpus itself before anyone searches it. The result is structured, reviewed knowledge with clear provenance.</p></div><div className="mt-8 grid gap-5 lg:grid-cols-3">{values.map(({ title, icon: Icon, points }) => <article key={title} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><span className="grid size-10 place-items-center rounded-lg bg-teal-50 text-teal-700"><Icon size={20} /></span><h3 className="mt-5 text-xl font-semibold">{title}</h3><ul className="mt-5 space-y-3 text-sm leading-6 text-slate-600">{points.map(point => <li key={point} className="flex gap-2"><CheckCircle2 size={16} className="mt-1 shrink-0 text-teal-700" />{point}</li>)}</ul></article>)}</div></section>
+
+    <section className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start"><div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Discovery preview</p><h2 className="mt-3 text-3xl font-semibold tracking-tight">See what OrgWiki finds before it generates articles.</h2><p className="mt-4 leading-7 text-slate-600">The knowledge map exposes structure and uncertainty so reviewers can focus on the information that needs attention.</p></div><div className="grid gap-4 sm:grid-cols-2"><article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="font-semibold text-teal-700">Knowledge domains</p><div className="mt-4 flex flex-wrap gap-2">{['Engineering', 'HR', 'IT', 'Finance'].map(value => <span key={value} className="rounded-md bg-teal-50 px-2.5 py-1.5 text-sm font-medium text-teal-800">{value}</span>)}</div></article><article className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm"><p className="font-semibold text-amber-950">Conflicting documentation</p><div className="mt-4 space-y-2 text-sm text-amber-900"><p className="rounded-md bg-white px-3 py-2">JWT expires in 30 minutes</p><p className="rounded-md bg-white px-3 py-2">JWT expires in 60 minutes</p></div></article><article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="font-semibold text-slate-900">Duplicate knowledge</p><p className="mt-4 text-sm leading-6 text-slate-600">Leave Policy guidance appears across the employee handbook and a separate policy document.</p></article><article className="rounded-xl border border-sky-200 bg-sky-50 p-5 shadow-sm"><p className="font-semibold text-sky-950">Proposed articles</p><div className="mt-4 space-y-2 text-sm text-sky-900"><p>Authentication</p><p>Remote Work</p><p>Employee Leave Policy</p></div></article></div></section>
+
+    <section className="rounded-2xl bg-slate-950 px-6 py-12 text-center text-white sm:px-12"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-300">Built for organizations that outgrow folders</p><h2 className="mx-auto mt-4 max-w-3xl text-3xl font-semibold tracking-tight">OrgWiki transforms scattered documentation into a curated, searchable, human-reviewed organizational knowledge base.</h2><p className="mx-auto mt-5 max-w-2xl leading-7 text-slate-300">Every published article carries the evidence needed to understand where knowledge came from and why it can be trusted.</p></section>
+  </div>
 }

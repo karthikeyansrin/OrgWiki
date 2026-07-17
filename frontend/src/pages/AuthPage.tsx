@@ -1,8 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BookOpenText } from 'lucide-react'
+import { ArrowDown, BookOpenText, CheckCircle2, Eye, EyeOff, GitCompareArrows, Library, ScanSearch, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { login, register } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+
+const workflow = [
+  ['Upload knowledge', UploadCloud],
+  ['AI discovers knowledge', ScanSearch],
+  ['Detect duplicates and conflicts', GitCompareArrows],
+  ['Generate articles', Sparkles],
+  ['Human review', ShieldCheck],
+  ['Knowledge Base', Library],
+] as const
 
 export function AuthPage() {
   const navigate = useNavigate()
@@ -13,38 +22,17 @@ export function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    setMode(searchParams.get('mode') === 'register' ? 'register' : 'login')
-  }, [searchParams])
-
-  if (isLoading) return <div className="grid min-h-screen place-items-center text-slate-600">Loading...</div>
+  useEffect(() => { setMode(searchParams.get('mode') === 'register' ? 'register' : 'login') }, [searchParams])
+  if (isLoading) return <div className="grid min-h-screen place-items-center bg-stone-50 text-slate-600">Loading...</div>
   if (user) return <Navigate to="/import" replace />
-
   const switchMode = (next: 'login' | 'register') => { setSearchParams({ mode: next }); setError('') }
+  const submit = async (event: FormEvent) => { event.preventDefault(); setError(''); if (!email.trim() || !password) return setError('Email and password are required.'); if (mode === 'register') { if (!fullName.trim()) return setError('Full name is required.'); if (password.length < 8) return setError('Password must be at least 8 characters.'); if (password !== confirmPassword) return setError('Password confirmation does not match.') } try { setSubmitting(true); const response = mode === 'login' ? await login(email, password) : await register(fullName, email, password, confirmPassword); completeAuthentication(response); navigate('/import', { replace: true }) } catch (reason) { setError(reason instanceof Error ? reason.message : 'Authentication could not be completed.') } finally { setSubmitting(false) } }
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    setError('')
-    if (!email.trim() || !password) return setError('Email and password are required.')
-    if (mode === 'register') {
-      if (!fullName.trim()) return setError('Full name is required.')
-      if (password.length < 8) return setError('Password must be at least 8 characters.')
-      if (password !== confirmPassword) return setError('Password confirmation does not match.')
-    }
-    try {
-      setSubmitting(true)
-      const response = mode === 'login' ? await login(email, password) : await register(fullName, email, password, confirmPassword)
-      completeAuthentication(response)
-      navigate('/import', { replace: true })
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Authentication could not be completed.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const passwordField = (label: string, value: string, onChange: (value: string) => void, autoComplete: string) => <label className="block text-sm font-semibold text-slate-700">{label}<span className="relative mt-2 block"><input type={showPassword ? 'text' : 'password'} value={value} onChange={event => onChange(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 pr-11 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100" autoComplete={autoComplete} /><button type="button" onClick={() => setShowPassword(current => !current)} className="absolute inset-y-0 right-0 grid w-11 cursor-pointer place-items-center text-slate-500 transition hover:text-teal-700" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>
 
-  return <main className="grid min-h-screen place-items-center bg-stone-50 px-5"><section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><Link to="/" className="mx-auto flex w-fit items-center gap-2.5 text-2xl font-semibold text-slate-950 hover:text-teal-800"><span className="grid size-8 place-items-center rounded-md bg-teal-700 text-white"><BookOpenText size={18} aria-hidden="true" /></span><span>OrgWiki</span></Link><div className="mt-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1"><button type="button" onClick={() => switchMode('login')} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'}`}>Login</button><button type="button" onClick={() => switchMode('register')} className={`rounded-md px-3 py-2 text-sm font-semibold ${mode === 'register' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'}`}>Register</button></div><form className="mt-6 space-y-4" onSubmit={submit}>{mode === 'register' && <label className="block text-sm font-medium">Full Name<input value={fullName} onChange={event => setFullName(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" autoComplete="name" /></label>}<label className="block text-sm font-medium">Email<input type="email" value={email} onChange={event => setEmail(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" autoComplete="email" /></label><label className="block text-sm font-medium">Password<input type="password" value={password} onChange={event => setPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>{mode === 'register' && <label className="block text-sm font-medium">Confirm Password<input value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" autoComplete="new-password" /></label>}{error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}<button disabled={submitting} className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}</button></form></section></main>
+  return <main className="min-h-screen bg-stone-50 px-5 py-8 sm:px-8 sm:py-12"><div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[0.95fr_1.05fr]"><section className="flex items-center p-6 sm:p-10"><div className="mx-auto w-full max-w-md"><Link to="/" className="flex w-fit items-center gap-2.5 text-2xl font-semibold text-slate-950 transition hover:text-teal-800"><span className="grid size-9 place-items-center rounded-md bg-teal-700 text-white"><BookOpenText size={19} aria-hidden="true" /></span><span>OrgWiki</span></Link><p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">{mode === 'login' ? 'Welcome back' : 'Create your workspace'}</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">{mode === 'login' ? 'Continue building trusted knowledge.' : 'Start with the knowledge your organization already has.'}</h1><div className="mt-7 grid grid-cols-2 rounded-lg bg-slate-100 p-1"><button type="button" onClick={() => switchMode('login')} className={`cursor-pointer rounded-md px-3 py-2.5 text-sm font-semibold transition ${mode === 'login' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Login</button><button type="button" onClick={() => switchMode('register')} className={`cursor-pointer rounded-md px-3 py-2.5 text-sm font-semibold transition ${mode === 'register' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>Register</button></div><form className="mt-7 space-y-4" onSubmit={submit}>{mode === 'register' && <label className="block text-sm font-semibold text-slate-700">Full Name<input value={fullName} onChange={event => setFullName(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100" autoComplete="name" /></label>}<label className="block text-sm font-semibold text-slate-700">Email<input type="email" value={email} onChange={event => setEmail(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100" autoComplete="email" /></label>{passwordField('Password', password, setPassword, mode === 'login' ? 'current-password' : 'new-password')}{mode === 'register' && passwordField('Confirm Password', confirmPassword, setConfirmPassword, 'new-password')}{error && <p className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}<button disabled={submitting} className="w-full cursor-pointer rounded-lg bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}</button></form>{mode === 'login' && <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950"><p className="font-semibold">TEST CREDENTIALS</p><p className="mt-1 leading-6">Email: <span className="font-mono font-medium">test@orgwiki.com</span><br />Password: <span className="font-mono font-medium">testorgwiki</span></p></div>}</div></section><aside className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-center"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-300">A deliberate knowledge workflow</p><h2 className="mt-4 max-w-lg text-4xl font-semibold tracking-tight">Trusted organizational knowledge starts here.</h2><p className="mt-5 max-w-lg leading-7 text-slate-300">OrgWiki turns fragmented documentation into cited knowledge articles that people can verify, review, and publish with confidence.</p><div className="mt-10 space-y-4">{workflow.map(([label, Icon], index) => <div key={label} className="flex gap-4"><div className="flex flex-col items-center"><span className="grid size-9 place-items-center rounded-lg bg-white/10 text-teal-200"><Icon size={18} /></span>{index < workflow.length - 1 && <ArrowDown size={15} className="mt-2 text-slate-500" />}</div><p className="pt-2 text-sm font-medium text-slate-100">{label}</p></div>)}</div><div className="mt-10 border-t border-white/10 pt-7"><div className="grid gap-3 text-sm text-slate-200"><p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-teal-300" />Citation-backed articles</p><p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-teal-300" />Human-reviewed publishing</p><p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-teal-300" />Searchable knowledge base</p><p className="flex items-center gap-2"><CheckCircle2 size={16} className="text-teal-300" />Traceable source evidence</p></div></div></aside></div></main>
 }
