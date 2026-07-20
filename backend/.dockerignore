@@ -1,0 +1,7 @@
+# Never send local secrets or build artifacts to the Docker daemon.
+.env
+.env.*
+**/bin/
+**/obj/
+.vs/
+TestResults/
