@@ -15,9 +15,10 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { TeamSpacesPage } from './pages/TeamSpacesPage'
 import { TeamSpacePage } from './pages/TeamSpacePage'
 import { TeamSpaceArticlePage } from './pages/TeamSpaceArticlePage'
+import { AppFooter } from './components/AppFooter'
 
 function App() {
-  return (
+  return <>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth" element={<AuthPage />} />
@@ -40,7 +41,8 @@ function App() {
         </Route>
       </Route>
     </Routes>
-  )
+    <AppFooter />
+  </>
 }
 
 export default App
