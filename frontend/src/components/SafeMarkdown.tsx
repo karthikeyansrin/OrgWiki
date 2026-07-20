@@ -10,12 +10,25 @@ function inline(value: string, key: string): ReactNode[] {
     if (part.startsWith('`') && part.endsWith('`')) return <code key={nodeKey} className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-slate-800">{part.slice(1, -1)}</code>
     const link = part.match(/^\[([^\]]+)\]\(([^\s)]+)\)$/)
     if (link) {
-      const href = link[2]
-      return /^(https?:\/\/|\/)/.test(href) ? <a key={nodeKey} href={href} className="font-medium text-teal-700 underline underline-offset-2 hover:text-teal-900" target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined}>{link[1]}</a> : link[1]
+      const destination = safeLinkDestination(link[2])
+      return destination ? <a key={nodeKey} href={destination.href} className="font-medium text-teal-700 underline underline-offset-2 hover:text-teal-900" target={destination.external ? '_blank' : undefined} rel={destination.external ? 'noopener noreferrer' : undefined}>{link[1]}</a> : link[1]
     }
     if (part.startsWith('*') && part.endsWith('*')) return <em key={nodeKey}>{part.slice(1, -1)}</em>
     return part
   })
+}
+
+function safeLinkDestination(value: string): { href: string; external: boolean } | null {
+  if (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) return { href: value, external: false }
+
+  try {
+    const url = new URL(value)
+    if (url.protocol === 'https:' || url.protocol === 'http:') return { href: url.toString(), external: true }
+  } catch {
+    // Unsafe or malformed links are rendered as their text label instead.
+  }
+
+  return null
 }
 
 function tableCells(line: string) {

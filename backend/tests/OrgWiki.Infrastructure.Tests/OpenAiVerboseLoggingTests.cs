@@ -25,8 +25,9 @@ public sealed class OpenAiVerboseLoggingTests
         var handler = new StubHandler("""{"choices":[{"finish_reason":"stop","message":{"content":"{\"domains\":[],\"topics\":[],\"relationships\":[],\"duplicateGroups\":[],\"conflicts\":[],\"outdatedCandidates\":[],\"suggestedArticles\":[]}"}}],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}""");
         var logger = new CapturingLogger<OpenAiKnowledgeDiscoveryProvider>();
         var provider = new OpenAiKnowledgeDiscoveryProvider(new StubHttpClientFactory(handler), Options.Create(new KnowledgeAnalysisOptions { ApiKey = "test-key", Model = "test-model", VerboseLogging = verboseLogging }), logger);
-        var marker = "MIDDLE_CONTENT_MUST_NOT_APPEAR_IN_A_TRUNCATED_PREVIEW";
-        var corpus = new string('a', 750) + marker + new string('b', 750);
+        var sensitivePrefix = "SENSITIVE_SOURCE_CONTENT_PREFIX";
+        var sensitiveSuffix = "SENSITIVE_SOURCE_CONTENT_SUFFIX";
+        var corpus = sensitivePrefix + new string('a', 1_500) + sensitiveSuffix;
 
         await provider.DiscoverAsync(new KnowledgeDiscoveryRequest(Guid.NewGuid(), [], corpus), default);
 
@@ -39,7 +40,9 @@ public sealed class OpenAiVerboseLoggingTests
 
         Assert.Contains(logger.Messages, message => message.Contains("ORGWIKI DISCOVERY", StringComparison.Ordinal));
         Assert.Contains(logger.Messages, message => message.Contains("OPENAI SUMMARY", StringComparison.Ordinal));
-        Assert.DoesNotContain(logger.Messages, message => message.Contains(marker, StringComparison.Ordinal));
+        Assert.Contains(logger.Messages, message => message.Contains("Prompt fingerprint", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Messages, message => message.Contains(sensitivePrefix, StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Messages, message => message.Contains(sensitiveSuffix, StringComparison.Ordinal));
     }
 
     [Fact]

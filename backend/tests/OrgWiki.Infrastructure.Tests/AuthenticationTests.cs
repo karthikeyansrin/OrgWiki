@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -69,6 +70,16 @@ public sealed class AuthenticationTests
     }
 
     [Fact]
+    public async Task Authentication_rejects_oversized_registration_and_login_inputs()
+    {
+        await using var db = CreateDb();
+        var service = CreateAuthenticationService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegisterAsync(new RegisterRequest(new string('a', 257), "test@example.com", "correct-password", "correct-password"), default));
+        Assert.Null(await service.LoginAsync(new LoginRequest(new string('a', 321), "correct-password"), default));
+    }
+
+    [Fact]
     public void Jwt_contains_expected_claims_and_validates()
     {
         var signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
@@ -101,6 +112,14 @@ public sealed class AuthenticationTests
     [InlineData(typeof(ReviewController))]
     public void Workflow_controllers_require_authorization(Type controller)
         => Assert.NotNull(controller.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true).SingleOrDefault());
+
+    [Fact]
+    public void Sensitive_endpoints_have_explicit_rate_limit_policies()
+    {
+        Assert.Contains(typeof(UploadsController).GetMethod(nameof(UploadsController.Upload))!.GetCustomAttributes(typeof(EnableRateLimitingAttribute), true), attribute => ((EnableRateLimitingAttribute)attribute).PolicyName == "upload");
+        Assert.Contains(typeof(AnalysesController).GetMethod(nameof(AnalysesController.Start))!.GetCustomAttributes(typeof(EnableRateLimitingAttribute), true), attribute => ((EnableRateLimitingAttribute)attribute).PolicyName == "ai");
+        Assert.Contains(typeof(GenerationsController).GetMethod(nameof(GenerationsController.Start))!.GetCustomAttributes(typeof(EnableRateLimitingAttribute), true), attribute => ((EnableRateLimitingAttribute)attribute).PolicyName == "ai");
+    }
 
     [Fact]
     public async Task User_owned_workspace_services_do_not_expose_another_users_data()

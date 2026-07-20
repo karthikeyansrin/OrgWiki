@@ -13,8 +13,9 @@ public sealed class TeamSpacesController(ITeamSpaceService teamSpaces) : Control
     public Task<IReadOnlyList<TeamSpaceSummary>> GetAll(CancellationToken cancellationToken) => teamSpaces.GetAllAsync(cancellationToken);
 
     [HttpPost]
-    public async Task<ActionResult<TeamSpaceSummary>> Create(CreateTeamSpaceRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<TeamSpaceSummary>> Create(CreateTeamSpaceRequest? request, CancellationToken cancellationToken)
     {
+        if (request is null) return BadRequest(new { error = "Team Space details are required." });
         try { return Created($"/api/team-spaces/{request.Slug}", await teamSpaces.CreateAsync(request, cancellationToken)); }
         catch (InvalidOperationException ex) { return UnprocessableEntity(new { error = ex.Message }); }
     }
@@ -28,8 +29,9 @@ public sealed class TeamSpacesController(ITeamSpaceService teamSpaces) : Control
         => await teamSpaces.GetArticleAssignmentsAsync(articleKey, cancellationToken) is { } assignments ? Ok(assignments) : NotFound();
 
     [HttpPut("articles/{articleKey}")]
-    public async Task<ActionResult<ArticleTeamSpaces>> UpdateAssignments(string articleKey, UpdateArticleTeamSpacesRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ArticleTeamSpaces>> UpdateAssignments(string articleKey, UpdateArticleTeamSpacesRequest? request, CancellationToken cancellationToken)
     {
+        if (request is null) return BadRequest(new { error = "Team Space assignments are required." });
         try { return await teamSpaces.UpdateArticleAssignmentsAsync(articleKey, request, cancellationToken) is { } assignments ? Ok(assignments) : NotFound(); }
         catch (InvalidOperationException ex) { return UnprocessableEntity(new { error = ex.Message }); }
     }

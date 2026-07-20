@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Buffers;
 using Microsoft.Extensions.Options;
 using OrgWiki.Application.Ingestion;
 
@@ -11,35 +12,31 @@ public sealed class SafeZipArchiveExtractor(IOptions<IngestionOptions> options) 
     public async Task<ExtractionResult> ExtractSupportedFilesAsync(
         Stream archive, string extractionDirectory, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(extractionDirectory);
         using var zip = new ZipArchive(archive, ZipArchiveMode.Read, leaveOpen: true);
-        var supportedEntries = zip.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)
+        if (zip.Entries.Count > options.Value.MaxArchiveEntries)
+            throw new InvalidDataException($"This archive contains too many entries. The current MVP supports up to {options.Value.MaxArchiveEntries} archive entries.");
+
+        var entries = zip.Entries.Where(entry => !string.IsNullOrEmpty(entry.FullName)).ToList();
+        foreach (var entry in entries) GetSafeRelativePath(entry.FullName);
+
+        var actualSizes = await MeasureExtractedSizesAsync(entries, cancellationToken);
+        var supportedEntries = entries.Where(entry => !string.IsNullOrEmpty(entry.Name)
             && SupportedExtensions.Contains(Path.GetExtension(entry.Name).ToLowerInvariant())).ToList();
         if (supportedEntries.Count > options.Value.MaxSupportedDocuments)
             throw new InvalidDataException($"This archive contains {supportedEntries.Count} supported documents. The current MVP supports up to {options.Value.MaxSupportedDocuments} documents per knowledge archive.");
 
-        long archiveSize = 0;
-        foreach (var entry in zip.Entries)
-        {
-            archiveSize += entry.Length;
-            if (archiveSize > options.Value.MaxTotalExtractedBytes)
-                throw new InvalidDataException("The archive exceeds the 25 MB MVP extracted content limit.");
-        }
-
+        Directory.CreateDirectory(extractionDirectory);
         var root = Path.GetFullPath(extractionDirectory);
         var files = new List<ExtractedFile>();
-        foreach (var entry in zip.Entries)
+        foreach (var entry in supportedEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrEmpty(entry.Name)) continue;
-            var extension = Path.GetExtension(entry.Name).ToLowerInvariant();
-            if (!SupportedExtensions.Contains(extension)) continue;
-            var relativePath = entry.FullName.Replace('\\', '/');
+            var relativePath = GetSafeRelativePath(entry.FullName);
             var destination = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-            if (!destination.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (!destination.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                 throw new InvalidDataException("The archive contains an unsafe path.");
 
-            if (entry.Length > options.Value.MaxIndividualFileBytes)
+            if (actualSizes[entry] > options.Value.MaxIndividualFileBytes)
             {
                 files.Add(new ExtractedFile(entry.Name, relativePath, string.Empty,
                     "Document exceeds the 2 MB MVP processing limit."));
@@ -52,6 +49,60 @@ public sealed class SafeZipArchiveExtractor(IOptions<IngestionOptions> options) 
             await source.CopyToAsync(output, cancellationToken);
             files.Add(new ExtractedFile(entry.Name, relativePath, destination));
         }
-        return new ExtractionResult(files, zip.Entries.Count(entry => !string.IsNullOrEmpty(entry.Name)));
+        return new ExtractionResult(files, entries.Count(entry => !string.IsNullOrEmpty(entry.Name)));
+    }
+
+    private async Task<IReadOnlyDictionary<ZipArchiveEntry, long>> MeasureExtractedSizesAsync(
+        IReadOnlyCollection<ZipArchiveEntry> entries,
+        CancellationToken cancellationToken)
+    {
+        var sizes = new Dictionary<ZipArchiveEntry, long>();
+        var buffer = ArrayPool<byte>.Shared.Rent(81_920);
+        long total = 0;
+        try
+        {
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                long entrySize = 0;
+                await using var source = entry.Open();
+                int read;
+                while ((read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+                {
+                    if (total > options.Value.MaxTotalExtractedBytes - read)
+                        throw new InvalidDataException("The archive exceeds the 25 MB MVP extracted content limit.");
+                    total += read;
+                    entrySize += read;
+                }
+                sizes[entry] = entrySize;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        return sizes;
+    }
+
+    private static string GetSafeRelativePath(string entryPath)
+    {
+        var relativePath = entryPath.Replace('\\', '/');
+        var driveQualified = relativePath.Length >= 3
+            && char.IsAsciiLetter(relativePath[0])
+            && relativePath[1] == ':'
+            && relativePath[2] == '/';
+        var containsTraversal = relativePath.Split('/', StringSplitOptions.None)
+            .Any(segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+        if (string.IsNullOrWhiteSpace(relativePath)
+            || relativePath.IndexOf('\0') >= 0
+            || relativePath.StartsWith("/", StringComparison.Ordinal)
+            || driveQualified
+            || Path.IsPathRooted(relativePath)
+            || containsTraversal)
+            throw new InvalidDataException("The archive contains an unsafe path.");
+
+        return relativePath;
     }
 }

@@ -54,6 +54,28 @@ public sealed class IngestionTests
     }
 
     [Fact]
+    public async Task Zip_extractor_rejects_unsafe_paths_even_for_unsupported_entries()
+    {
+        await using var stream = new MemoryStream();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, true))
+        await using (var writer = new StreamWriter(archive.CreateEntry("../escape.exe").Open())) await writer.WriteAsync("unsafe");
+        stream.Position = 0;
+
+        var extractor = new SafeZipArchiveExtractor(Options.Create(new IngestionOptions()));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => extractor.ExtractSupportedFilesAsync(stream, TempDirectory(), default));
+    }
+
+    [Fact]
+    public async Task Zip_extractor_rejects_archives_with_too_many_entries()
+    {
+        await using var zip = CreateZip([("one.txt", "one"), ("two.txt", "two"), ("three.txt", "three")]);
+        var extractor = new SafeZipArchiveExtractor(Options.Create(new IngestionOptions { MaxArchiveEntries = 2 }));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => extractor.ExtractSupportedFilesAsync(zip, TempDirectory(), default));
+    }
+
+    [Fact]
     public async Task Zip_extractor_limits_supported_documents_but_ignores_unsupported_files()
     {
         await using var tooMany = CreateZip(Enumerable.Range(0, 3).Select(i => ($"doc{i}.txt", "text")));

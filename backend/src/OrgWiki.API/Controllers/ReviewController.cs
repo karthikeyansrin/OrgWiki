@@ -14,8 +14,11 @@ public sealed class ReviewController(IReviewService review) : ControllerBase
     [HttpGet("articles/{id:guid}")]
     public async Task<ActionResult<ReviewArticleDetails>> Get(Guid id, CancellationToken cancellationToken) => await review.GetArticleAsync(id, cancellationToken) is { } article ? Ok(article) : NotFound();
     [HttpPut("articles/{id:guid}")]
-    public async Task<ActionResult<ReviewArticleDetails>> Update(Guid id, UpdateReviewArticleRequest request, CancellationToken cancellationToken)
-    { try { return await review.UpdateAsync(id, request, cancellationToken) is { } article ? Ok(article) : NotFound(); } catch (InvalidOperationException ex) { return UnprocessableEntity(new { error = ex.Message }); } }
+    public async Task<ActionResult<ReviewArticleDetails>> Update(Guid id, UpdateReviewArticleRequest? request, CancellationToken cancellationToken)
+    {
+        if (request is null) return BadRequest(new { error = "Article updates are required." });
+        try { return await review.UpdateAsync(id, request, cancellationToken) is { } article ? Ok(article) : NotFound(); } catch (InvalidOperationException ex) { return UnprocessableEntity(new { error = ex.Message }); }
+    }
     [HttpPost("articles/{id:guid}/approve")]
     public async Task<ActionResult<ReviewArticleDetails>> Approve(Guid id, [FromBody] ReviewActionRequest? request, CancellationToken cancellationToken)
     { try { return await review.ApproveAsync(id, request?.Notes, cancellationToken) is { } article ? Ok(article) : NotFound(); } catch (InvalidOperationException ex) { return UnprocessableEntity(new { error = ex.Message }); } }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using OrgWiki.Application.Analysis;
 
 namespace OrgWiki.API.Controllers;
@@ -10,6 +11,7 @@ namespace OrgWiki.API.Controllers;
 public sealed class AnalysesController(IKnowledgeAnalysisService analyses) : ControllerBase
 {
     [HttpPost("uploads/{uploadId:guid}/analysis")]
+    [EnableRateLimiting("ai")]
     public async Task<ActionResult<KnowledgeAnalysisResult>> Start(Guid uploadId, [FromQuery] bool retry = false, CancellationToken cancellationToken = default)
     {
         try

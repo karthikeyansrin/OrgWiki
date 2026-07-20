@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OrgWiki.Application.Analysis;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace OrgWiki.Infrastructure.Analysis;
 
@@ -24,7 +26,7 @@ internal static class OpenAiVerboseLogger
         if (!enabled) return;
 
         logger.LogInformation(
-            "========== ORGWIKI {Stage} ==========\nRequestId: {RequestId}\nUploadId: {UploadId}\nAnalysisId: {AnalysisId}\nGenerationId: {GenerationId}\nModel: {Model}\nMode: Live\nPrompt size (characters): {PromptCharacters}\nEstimated prompt tokens: {EstimatedPromptTokens}\nActual prompt tokens: {PromptTokens}\nCompletion tokens: {CompletionTokens}\nTotal tokens: {TotalTokens}\nLatency (ms): {LatencyMilliseconds}\nFinish reason: {FinishReason}\nResponse size (characters): {ResponseCharacters}\nPrompt preview:\n{PromptPreview}",
+            "========== ORGWIKI {Stage} ==========\nRequestId: {RequestId}\nUploadId: {UploadId}\nAnalysisId: {AnalysisId}\nGenerationId: {GenerationId}\nModel: {Model}\nMode: Live\nPrompt size (characters): {PromptCharacters}\nPrompt fingerprint: {PromptFingerprint}\nEstimated prompt tokens: {EstimatedPromptTokens}\nActual prompt tokens: {PromptTokens}\nCompletion tokens: {CompletionTokens}\nTotal tokens: {TotalTokens}\nLatency (ms): {LatencyMilliseconds}\nFinish reason: {FinishReason}\nResponse size (characters): {ResponseCharacters}",
             stage,
             requestId ?? "Unavailable",
             uploadId?.ToString() ?? "N/A",
@@ -32,14 +34,14 @@ internal static class OpenAiVerboseLogger
             generationId?.ToString() ?? "N/A",
             model,
             prompt.Length,
+            PromptFingerprint(prompt),
             prompt.Length / 4,
             usage?.InputTokens?.ToString() ?? "Unavailable",
             usage?.OutputTokens?.ToString() ?? "Unavailable",
             usage?.TotalTokens?.ToString() ?? "Unavailable",
             latencyMilliseconds,
             finishReason ?? "Unavailable",
-            responseCharacterCount,
-            Preview(prompt));
+            responseCharacterCount);
 
         LogSummary(logger, stage, model, usage, latencyMilliseconds, options);
     }
@@ -81,11 +83,8 @@ internal static class OpenAiVerboseLogger
             CalculateCost(usage, options));
     }
 
-    private static string Preview(string prompt)
-    {
-        if (prompt.Length <= 1000) return prompt;
-        return $"{prompt[..500]}\n\n... [prompt preview truncated] ...\n\n{prompt[^500..]}";
-    }
+    private static string PromptFingerprint(string prompt)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(prompt)))[..16];
 
     private static string CalculateCost(ProviderUsage? usage, KnowledgeAnalysisOptions options)
     {

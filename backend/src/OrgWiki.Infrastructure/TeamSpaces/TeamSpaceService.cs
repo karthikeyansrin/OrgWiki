@@ -53,6 +53,7 @@ public sealed partial class TeamSpaceService(OrgWikiDbContext db, ICurrentUser c
         var article = await OwnedPublishedArticle(articleKey, cancellationToken);
         if (article is null) return null;
         var ids = request.TeamSpaceIds?.Distinct().ToList() ?? [];
+        if (ids.Count > 100) throw new InvalidOperationException("An article can be assigned to up to 100 Team Spaces.");
         var spaces = ids.Count == 0 ? [] : await db.TeamSpaces.Where(x => ids.Contains(x.Id)).ToListAsync(cancellationToken);
         if (spaces.Count != ids.Count) throw new InvalidOperationException("One or more selected Team Spaces do not exist.");
 

@@ -76,10 +76,10 @@ public sealed class ReviewService(OrgWikiDbContext db, ICurrentUser currentUser)
 
     static void Validate(UpdateReviewArticleRequest request, IReadOnlyCollection<string> otherKeys)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Summary) || string.IsNullOrWhiteSpace(request.MarkdownContent)) throw new InvalidOperationException("Title, summary, and Markdown content are required.");
-        if (request.EstimatedReadingMinutes < 1 || !new[] { "Beginner", "Intermediate", "Advanced" }.Contains(request.Difficulty)) throw new InvalidOperationException("Article metadata is invalid.");
-        if (request.Tags.Any(string.IsNullOrWhiteSpace) || request.Tags.Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.Tags.Count) throw new InvalidOperationException("Tags must be unique and non-empty.");
-        if (request.RelatedArticleKeys.Distinct(StringComparer.Ordinal).Count() != request.RelatedArticleKeys.Count || request.RelatedArticleKeys.Any(x => !otherKeys.Contains(x))) throw new InvalidOperationException("Related article references are invalid.");
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 512 || string.IsNullOrWhiteSpace(request.Summary) || string.IsNullOrWhiteSpace(request.MarkdownContent)) throw new InvalidOperationException("Title, summary, and Markdown content are required.");
+        if (request.EstimatedReadingMinutes < 1 || string.IsNullOrWhiteSpace(request.Difficulty) || request.Difficulty.Length > 32 || !new[] { "Beginner", "Intermediate", "Advanced" }.Contains(request.Difficulty)) throw new InvalidOperationException("Article metadata is invalid.");
+        if (request.Tags is null || request.Tags.Count > 50 || request.Tags.Any(tag => string.IsNullOrWhiteSpace(tag) || tag.Trim().Length > 64) || request.Tags.Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.Tags.Count) throw new InvalidOperationException("Tags must be unique, non-empty, and 64 characters or fewer.");
+        if (request.RelatedArticleKeys is null || request.RelatedArticleKeys.Count > 50 || request.RelatedArticleKeys.Any(key => string.IsNullOrWhiteSpace(key) || key.Length > 128) || request.RelatedArticleKeys.Distinct(StringComparer.Ordinal).Count() != request.RelatedArticleKeys.Count || request.RelatedArticleKeys.Any(x => !otherKeys.Contains(x))) throw new InvalidOperationException("Related article references are invalid.");
     }
     static IReadOnlyList<string> Strings(string value) => JsonSerializer.Deserialize<List<string>>(value) ?? [];
     private IQueryable<GeneratedArticle> OwnedArticles()

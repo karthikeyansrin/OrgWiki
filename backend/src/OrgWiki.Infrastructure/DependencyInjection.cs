@@ -27,9 +27,9 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration["DATABASE_URL"]
-            ?? configuration.GetConnectionString("OrgWiki")
-            ?? throw new InvalidOperationException("A PostgreSQL connection string must be configured.");
+        var connectionString = configuration["DATABASE_URL"];
+        if (string.IsNullOrWhiteSpace(connectionString)) connectionString = configuration.GetConnectionString("OrgWiki");
+        if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("A PostgreSQL connection string must be configured.");
 
         services.AddDbContext<OrgWikiDbContext>(options => options.UseNpgsql(connectionString,
             npgsql => npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.GetName().Name)));
@@ -37,6 +37,7 @@ public static class DependencyInjection
         {
             var section = configuration.GetSection(IngestionOptions.SectionName);
             if (long.TryParse(section[nameof(IngestionOptions.MaxArchiveBytes)], out var maxArchive)) options.MaxArchiveBytes = maxArchive;
+            if (int.TryParse(section[nameof(IngestionOptions.MaxArchiveEntries)], out var maxEntries)) options.MaxArchiveEntries = maxEntries;
             if (int.TryParse(section[nameof(IngestionOptions.MaxSupportedDocuments)], out var maxCount)) options.MaxSupportedDocuments = maxCount;
             if (long.TryParse(section[nameof(IngestionOptions.MaxIndividualFileBytes)], out var maxFile)) options.MaxIndividualFileBytes = maxFile;
             if (long.TryParse(section[nameof(IngestionOptions.MaxTotalExtractedBytes)], out var maxTotal)) options.MaxTotalExtractedBytes = maxTotal;
@@ -45,6 +46,12 @@ public static class DependencyInjection
             if (int.TryParse(section[nameof(IngestionOptions.MaxPdfPages)], out var maxPdfPages)) options.MaxPdfPages = maxPdfPages;
             options.LocalStoragePath = section[nameof(IngestionOptions.LocalStoragePath)] ?? options.LocalStoragePath;
         });
+        services.AddOptions<IngestionOptions>()
+            .Validate(options => options.MaxArchiveBytes > 0 && options.MaxArchiveEntries > 0 && options.MaxSupportedDocuments > 0, "Archive limits must be positive.")
+            .Validate(options => options.MaxIndividualFileBytes > 0 && options.MaxTotalExtractedBytes >= options.MaxIndividualFileBytes, "Extracted file limits are invalid.")
+            .Validate(options => options.MaxNormalizedCharactersPerDocument > 0 && options.MaxTotalNormalizedCharacters >= options.MaxNormalizedCharactersPerDocument, "Normalized text limits are invalid.")
+            .Validate(options => options.MaxPdfPages > 0, "PDF page limit must be positive.")
+            .ValidateOnStart();
         services.AddHttpClient("OpenAI", (serviceProvider, client) =>
         {
             client.BaseAddress = new Uri("https://api.openai.com/");

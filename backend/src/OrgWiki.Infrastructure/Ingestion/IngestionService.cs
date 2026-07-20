@@ -24,6 +24,7 @@ public sealed class IngestionService(
         upload.SetUploadedBy(currentUser.FullName);
         db.Uploads.Add(upload);
         await db.SaveChangesAsync(cancellationToken);
+        string? extractionDirectory = null;
         try
         {
             var key = await storage.SaveArchiveAsync(fileName, archive, cancellationToken);
@@ -33,7 +34,7 @@ public sealed class IngestionService(
             await db.SaveChangesAsync(cancellationToken);
             if (archive.CanSeek) archive.Position = 0;
 
-            var extractionDirectory = Path.Combine(Path.GetTempPath(), "orgwiki", upload.Id.ToString("N"));
+            extractionDirectory = Path.Combine(Path.GetTempPath(), "orgwiki", upload.Id.ToString("N"));
             var extraction = await extractor.ExtractSupportedFilesAsync(archive, extractionDirectory, cancellationToken);
             if (extraction.Files.Count == 0) throw new InvalidDataException("The archive contains no supported documents.");
             var files = extraction.Files;
@@ -80,6 +81,10 @@ public sealed class IngestionService(
             await db.SaveChangesAsync(cancellationToken);
             logger.LogError(ex, "Upload ingestion failed for UploadId {UploadId}", upload.Id);
             throw;
+        }
+        finally
+        {
+            if (extractionDirectory is not null) DeleteTemporaryExtractionDirectory(extractionDirectory);
         }
     }
 
@@ -138,5 +143,25 @@ public sealed class IngestionService(
             ".txt" => DocumentType.Text,
             _ => throw new InvalidDataException($"Unsupported document type: {fileName}")
         };
+    }
+
+    private void DeleteTemporaryExtractionDirectory(string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "orgwiki"));
+            var directory = Path.GetFullPath(path);
+            if (!directory.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                logger.LogWarning("Skipped cleanup for an unexpected extraction directory.");
+                return;
+            }
+
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning("Temporary extraction cleanup did not complete for the current upload.");
+        }
     }
 }

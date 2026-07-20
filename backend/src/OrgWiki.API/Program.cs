@@ -4,14 +4,25 @@ using OrgWiki.Infrastructure;
 using OrgWiki.Application.Analysis;
 using OrgWiki.API.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Threading.RateLimiting;
 using OrgWiki.Application.Authentication;
+using OrgWiki.Application.Ingestion;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
+builder.Logging.AddSimpleConsole(options => options.IncludeScopes = true);
+
+var configuredArchiveBytes = builder.Configuration.GetValue<long?>("Ingestion:MaxArchiveBytes") ?? 10 * 1024 * 1024;
+if (configuredArchiveBytes <= 0) throw new InvalidOperationException("Ingestion archive size limit must be positive.");
+var maxUploadRequestBytes = checked(configuredArchiveBytes + 128 * 1024);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxUploadRequestBytes);
+builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = maxUploadRequestBytes);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -86,26 +97,106 @@ builder.Services.Configure<StorageOptions>(options =>
 });
 
 const string frontendCorsPolicy = "Frontend";
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173"];
+var allowedOrigins = configuredOrigins.Select(ValidateCorsOrigin).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+if (allowedOrigins.Length == 0) throw new InvalidOperationException("At least one allowed frontend origin must be configured.");
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(frontendCorsPolicy, policy =>
         policy.WithOrigins(allowedOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod());
+            .WithHeaders("Authorization", "Content-Type")
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new { error = "Too many requests. Please wait before trying again." }, cancellationToken);
+    };
+    options.AddPolicy("auth", context => FixedWindow(context, "auth", permitLimit: 10, window: TimeSpan.FromMinutes(1)));
+    options.AddPolicy("upload", context => FixedWindow(context, "upload", permitLimit: 5, window: TimeSpan.FromMinutes(5)));
+    options.AddPolicy("ai", context => FixedWindow(context, "ai", permitLimit: 4, window: TimeSpan.FromMinutes(10)));
 });
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("OrgWiki.API.UnhandledException");
+    logger.LogError(exception, "Unhandled request failure. CorrelationId {CorrelationId}", context.TraceIdentifier);
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new { error = "The request could not be completed." });
+}));
+
+app.Use(async (context, next) =>
+{
+    var supplied = context.Request.Headers["X-Correlation-ID"].ToString();
+    var correlationId = Guid.TryParse(supplied, out var parsed) ? parsed.ToString("D") : Guid.NewGuid().ToString("D");
+    context.TraceIdentifier = correlationId;
+    context.Response.Headers["X-Correlation-ID"] = correlationId;
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()";
+    if (!context.Request.Path.StartsWithSegments("/swagger"))
+        context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+    if (context.Request.Path.StartsWithSegments("/api"))
+        context.Response.Headers.CacheControl = "no-store";
+
+    using (app.Logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+        await next();
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseRouting();
 app.UseCors(frontendCorsPolicy);
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static RateLimitPartition<string> FixedWindow(HttpContext context, string policy, int permitLimit, TimeSpan window)
+    => RateLimitPartition.GetFixedWindowLimiter(
+        $"{policy}:{RateLimitKey(context)}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = window,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+
+static string RateLimitKey(HttpContext context)
+{
+    var userId = context.User.FindFirst("sub")?.Value;
+    return Guid.TryParse(userId, out var parsed)
+        ? $"user:{parsed:D}"
+        : $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+}
+
+static string ValidateCorsOrigin(string origin)
+{
+    var normalized = origin?.Trim().TrimEnd('/') ?? string.Empty;
+    if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri)
+        || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        || string.IsNullOrWhiteSpace(uri.Host)
+        || !string.IsNullOrEmpty(uri.UserInfo)
+        || !string.Equals(uri.GetLeftPart(UriPartial.Authority), normalized, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Cors:AllowedOrigins must contain absolute HTTP or HTTPS origins only.");
+    return normalized;
+}
 
 public partial class Program;
