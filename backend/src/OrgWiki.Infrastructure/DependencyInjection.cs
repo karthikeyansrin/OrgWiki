@@ -16,6 +16,8 @@ using OrgWiki.Application.Authentication;
 using OrgWiki.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Identity;
 using OrgWiki.Domain.Authentication;
+using OrgWiki.Application.TeamSpaces;
+using OrgWiki.Infrastructure.TeamSpaces;
 
 namespace OrgWiki.Infrastructure;
 
@@ -62,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeGenerationService, KnowledgeGenerationService>();
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
+        services.AddScoped<ITeamSpaceService, TeamSpaceService>();
+        services.AddScoped<IPublicTeamSpaceService, PublicTeamSpaceService>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IZipArchiveExtractor, SafeZipArchiveExtractor>();
         services.AddScoped<IContentNormalizer, ContentNormalizer>();

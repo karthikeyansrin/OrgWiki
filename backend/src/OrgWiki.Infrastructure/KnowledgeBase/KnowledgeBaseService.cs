@@ -39,7 +39,7 @@ public sealed class KnowledgeBaseService(OrgWikiDbContext db, ICurrentUser curre
         var documentIds = article.Citations.Select(x => x.SourceDocumentId).Distinct().ToList();
         var documents = await db.Documents.Where(x => documentIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         var citations = article.Citations.Where(x => documents.ContainsKey(x.SourceDocumentId)).Select(x => new PublishedCitation(documents[x.SourceDocumentId].FileName, documents[x.SourceDocumentId].OriginalPath, x.EvidenceSnippet)).ToList();
-        return new PublishedArticle(article.Key, article.Title, article.Summary, article.MarkdownContent, DomainFor(article, discovery), article.Difficulty, article.EstimatedReadingMinutes, Strings(article.TagsJson), article.PublishedAtUtc ?? article.GeneratedAtUtc, related, citations);
+        return new PublishedArticle(article.Key, article.Title, article.Summary, article.MarkdownContent, DomainFor(article, discovery), article.Difficulty, article.EstimatedReadingMinutes, Strings(article.TagsJson), article.GeneratedAtUtc, article.PublishedAtUtc ?? article.GeneratedAtUtc, related, citations);
     }
 
     async Task<List<GeneratedArticle>> PublishedArticles(CancellationToken cancellationToken) => await OwnedPublishedArticles().OrderBy(x => x.Title).ToListAsync(cancellationToken);

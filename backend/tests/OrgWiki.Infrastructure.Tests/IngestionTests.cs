@@ -284,7 +284,7 @@ public sealed class IngestionTests
     }
 
     [Fact]
-    public void Only_approved_articles_can_publish_and_publishing_is_idempotent()
+    public void Only_approved_articles_can_publish_and_published_articles_can_be_republished()
     {
         var pending = new GeneratedArticle(Guid.NewGuid(), "pending", "Pending", "Summary", "# Pending", "Beginner", 1, "[]", "[]", .8);
         Assert.Throws<InvalidOperationException>(() => pending.Publish("publisher"));
@@ -292,11 +292,12 @@ public sealed class IngestionTests
         Assert.Throws<InvalidOperationException>(() => rejected.Publish("publisher"));
         var approved = new GeneratedArticle(Guid.NewGuid(), "approved", "Approved", "Summary", "# Approved", "Intermediate", 5, "[]", "[]", .94);
         var citation = new GeneratedArticleCitation(approved.Id, Guid.NewGuid(), "Exact evidence."); approved.Citations.Add(citation); approved.Approve("reviewer", "Approved.");
-        approved.Publish("publisher"); var publishedAt = approved.PublishedAtUtc;
+        approved.Publish("publisher");
         approved.Publish("another-publisher");
-        Assert.Equal(GeneratedArticleStatus.Published, approved.Status); Assert.NotNull(publishedAt); Assert.Equal(publishedAt, approved.PublishedAtUtc); Assert.Equal("publisher", approved.PublishedBy);
+        Assert.Equal(GeneratedArticleStatus.Published, approved.Status); Assert.NotNull(approved.PublishedAtUtc); Assert.Equal("another-publisher", approved.PublishedBy);
         Assert.Equal(.94, approved.Confidence); Assert.Single(approved.Citations); Assert.Equal("Exact evidence.", approved.Citations[0].EvidenceSnippet);
-        Assert.Throws<InvalidOperationException>(() => approved.Edit("Changed", "Summary", "# Changed", "Intermediate", 3, "[]", "[]", "reviewer"));
+        approved.Edit("Changed", "Summary", "# Changed", "Intermediate", 3, "[]", "[]", "reviewer");
+        Assert.Equal("Changed", approved.Title); Assert.Equal("reviewer", approved.LastEditedBy);
         Assert.Throws<InvalidOperationException>(() => approved.Reject("reviewer", null));
     }
 

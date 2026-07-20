@@ -12,12 +12,18 @@ import { KnowledgeArticlePage } from './pages/KnowledgeArticlePage'
 import { LandingPage } from './pages/LandingPage'
 import { AuthPage } from './pages/AuthPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { TeamSpacesPage } from './pages/TeamSpacesPage'
+import { TeamSpacePage } from './pages/TeamSpacePage'
+import { TeamSpaceArticlePage } from './pages/TeamSpaceArticlePage'
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/spaces" element={<TeamSpacesPage />} />
+      <Route path="/spaces/:slug" element={<TeamSpacePage />} />
+      <Route path="/spaces/:slug/:articleSlug" element={<TeamSpaceArticlePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="dashboard" element={<Navigate to="/import" replace />} />

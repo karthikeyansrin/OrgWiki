@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OrgWiki.Domain.Ingestion;
 using OrgWiki.Domain.Analysis;
 using OrgWiki.Domain.Authentication;
+using OrgWiki.Domain.TeamSpaces;
 
 namespace OrgWiki.Infrastructure.Persistence;
 
@@ -14,6 +15,8 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
     public DbSet<GeneratedArticle> GeneratedArticles => Set<GeneratedArticle>();
     public DbSet<GeneratedArticleCitation> GeneratedArticleCitations => Set<GeneratedArticleCitation>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<TeamSpace> TeamSpaces => Set<TeamSpace>();
+    public DbSet<TeamSpaceArticle> TeamSpaceArticles => Set<TeamSpaceArticle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -90,6 +93,23 @@ public sealed class OrgWikiDbContext(DbContextOptions<OrgWikiDbContext> options)
             entity.ToTable("generated_article_citations"); entity.HasKey(x => x.Id); entity.Property(x => x.EvidenceSnippet).IsRequired();
             entity.HasIndex(x => x.GeneratedArticleId); entity.HasOne(x => x.Article).WithMany(x => x.Citations).HasForeignKey(x => x.GeneratedArticleId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<OrgWiki.Domain.Ingestion.Document>().WithMany().HasForeignKey(x => x.SourceDocumentId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<TeamSpace>(entity =>
+        {
+            entity.ToTable("team_spaces");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.Slug).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(1024).IsRequired();
+            entity.HasIndex(x => x.Slug).IsUnique();
+        });
+        modelBuilder.Entity<TeamSpaceArticle>(entity =>
+        {
+            entity.ToTable("team_space_articles");
+            entity.HasKey(x => new { x.TeamSpaceId, x.GeneratedArticleId });
+            entity.HasIndex(x => x.GeneratedArticleId);
+            entity.HasOne(x => x.TeamSpace).WithMany(x => x.ArticleAssignments).HasForeignKey(x => x.TeamSpaceId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Article).WithMany(x => x.TeamSpaceAssignments).HasForeignKey(x => x.GeneratedArticleId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
