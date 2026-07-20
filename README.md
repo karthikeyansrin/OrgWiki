@@ -40,6 +40,8 @@ Instead of simply indexing files, OrgWiki understands organizational knowledge, 
 
 Every AI-generated article goes through a human review workflow before publication.
 
+Published articles can also be curated into **Team Spaces**: public, read-only collections that let employees browse shared knowledge without signing in.
+
 ---
 
 # Demo Workflow
@@ -73,6 +75,8 @@ Searchable Knowledge Base
 ```
 
 ---
+
+After publishing, articles remain available in the authenticated Knowledge Base and may be curated into public Team Spaces for employee-facing access.
 
 # Key Features
 
@@ -149,6 +153,25 @@ Published articles become part of an internal knowledge base with:
 
 ---
 
+## Team Spaces
+
+Team Spaces are curated public collections of **published** knowledge articles. They let a knowledge-maintenance group share trusted material with every employee without requiring a login.
+
+Authenticated users manage Team Spaces from a published article. They can create or delete spaces and assign an article to one or more spaces. Articles remain the source of truth, so assigning an article to multiple Team Spaces never duplicates its content.
+
+Public Team Spaces provide:
+
+* A browsable `/spaces` directory
+* Public, read-only Team Space and article pages
+* Keyword search scoped to the current Team Space
+* Published article cards with titles, summaries, and update dates
+* Related-article navigation limited to content shared in that space
+* Pure Markdown downloads from public Team Space article pages
+
+Only published articles are publicly visible. Editing, review, publishing, and Team Space management remain authenticated actions.
+
+---
+
 # Architecture
 
 ```text
@@ -218,7 +241,13 @@ Only approved articles may be published.
 
 ## 5. Publish
 
-Published articles become searchable organizational knowledge.
+Published articles become searchable organizational knowledge in the authenticated Knowledge Base. They can also be assigned to one or more Team Spaces for public, read-only browsing.
+
+---
+
+## 6. Share through Team Spaces
+
+Knowledge maintainers curate published articles into named Team Spaces such as Engineering, HR, or Security. Employees can then browse, search, read, and download the shared Markdown without authentication.
 
 ---
 
@@ -245,6 +274,8 @@ Current implementation includes:
 * Environment-based secret management
 
 Each authenticated user can access only their own uploaded documents and generated knowledge.
+
+Team Spaces are the intentional public exception: they expose only curated, published articles through read-only routes. They do not expose upload data, drafts, review controls, source files, or editing capabilities.
 
 ---
 
@@ -363,6 +394,8 @@ OrgWiki
 * Review workflow
 * Publishing
 * Searchable knowledge base
+* Public Team Spaces
+* Team Space article assignment and Markdown download
 * JWT authentication
 * User workspace isolation
 
