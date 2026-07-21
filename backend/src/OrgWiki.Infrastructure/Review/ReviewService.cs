@@ -54,6 +54,8 @@ public sealed class ReviewService(OrgWikiDbContext db, ICurrentUser currentUser)
     public async Task<ReviewArticleDetails?> PublishAsync(Guid articleId, CancellationToken cancellationToken)
     {
         var article = await OwnedArticles().SingleOrDefaultAsync(x => x.Id == articleId, cancellationToken); if (article is null) return null;
+        if (article.Status != GeneratedArticleStatus.Published && await OwnedArticles().AnyAsync(candidate => candidate.Id != article.Id && candidate.Status == GeneratedArticleStatus.Published && candidate.Key == article.Key, cancellationToken))
+            throw new InvalidOperationException("An article with the same knowledge identifier is already published in your workspace.");
         article.Publish(currentUser.FullName); await db.SaveChangesAsync(cancellationToken); return await GetArticleAsync(articleId, cancellationToken);
     }
 

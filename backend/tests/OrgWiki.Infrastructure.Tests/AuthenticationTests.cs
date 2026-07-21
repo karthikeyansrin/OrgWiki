@@ -70,6 +70,39 @@ public sealed class AuthenticationTests
     }
 
     [Fact]
+    public async Task Publishing_a_second_article_with_the_same_key_in_the_same_workspace_is_rejected()
+    {
+        await using var db = CreateDb();
+        var user = new User("Test User", "test@example.com");
+        var published = CreatePublishedGraph(user.Id, "published.zip", "authentication");
+        var candidate = CreateApprovedGraph(user.Id, "candidate.zip", "authentication");
+        db.AddRange(user, published.Upload, published.Analysis, published.Generation, published.Article, candidate.Upload, candidate.Analysis, candidate.Generation, candidate.Article);
+        await db.SaveChangesAsync();
+
+        var review = new ReviewService(db, new TestCurrentUser(user.Id, user.FullName, user.Email));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => review.PublishAsync(candidate.Article.Id, default));
+
+        Assert.Equal("An article with the same knowledge identifier is already published in your workspace.", exception.Message);
+        Assert.Equal(GeneratedArticleStatus.Approved, candidate.Article.Status);
+    }
+
+    [Fact]
+    public async Task Republishing_the_same_published_article_remains_idempotent()
+    {
+        await using var db = CreateDb();
+        var user = new User("Test User", "test@example.com");
+        var published = CreatePublishedGraph(user.Id, "published.zip", "authentication");
+        db.AddRange(user, published.Upload, published.Analysis, published.Generation, published.Article);
+        await db.SaveChangesAsync();
+
+        var review = new ReviewService(db, new TestCurrentUser(user.Id, user.FullName, user.Email));
+        var result = await review.PublishAsync(published.Article.Id, default);
+
+        Assert.NotNull(result);
+        Assert.Equal("Published", result.Status);
+    }
+
+    [Fact]
     public async Task Authentication_rejects_oversized_registration_and_login_inputs()
     {
         await using var db = CreateDb();
@@ -171,6 +204,19 @@ public sealed class AuthenticationTests
         var article = new GeneratedArticle(generation.Id, articleKey, articleKey, "summary", "# Article", "Beginner", 1, "[]", "[]", .9);
         article.Approve("reviewer", null);
         article.Publish("publisher");
+        return (upload, analysis, generation, article);
+    }
+
+    private static (Upload Upload, KnowledgeAnalysis Analysis, KnowledgeGeneration Generation, GeneratedArticle Article) CreateApprovedGraph(Guid userId, string uploadName, string articleKey)
+    {
+        const string discovery = "{\"domains\":[],\"topics\":[],\"relationships\":[],\"duplicateGroups\":[],\"conflicts\":[],\"outdatedCandidates\":[],\"suggestedArticles\":[]}";
+        var upload = new Upload(uploadName, "archive", userId);
+        var analysis = new KnowledgeAnalysis(upload.Id, AiMode.Replay, "replay");
+        analysis.Complete(discovery, null, null, null, 1);
+        var generation = new KnowledgeGeneration(analysis.Id, AiMode.Replay, "replay");
+        generation.Complete("{\"articles\":[]}", null, null, null, 1);
+        var article = new GeneratedArticle(generation.Id, articleKey, articleKey, "summary", "# Article", "Beginner", 1, "[]", "[]", .9);
+        article.Approve("reviewer", null);
         return (upload, analysis, generation, article);
     }
 
